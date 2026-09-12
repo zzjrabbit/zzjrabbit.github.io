@@ -1,0 +1,29 @@
+/* 站点自定义样式：在内置 calepin 主题之后加载。
+   主题暴露一组 --calepin-* 设计变量，覆盖它们比改选择器更稳。 */
+
+:root {
+  /* 中文笔记需要 CJK 回退，否则中文会掉到浏览器默认字体 */
+  --calepin-font-body:
+    "Charter", "Source Serif Pro", "Noto Serif CJK SC", "Source Han Serif SC",
+    "Songti SC", "Microsoft YaHei", Georgia, serif;
+  --calepin-font-heading:
+    "Source Sans Pro", "Noto Sans CJK SC", "Source Han Sans SC",
+    "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+}
+
+/* 行间公式留白，长公式允许横向滚动而不是撑破版心 */
+math[display="block"],
+.calepin-website-content math[display="block"] {
+  margin-block: 1.1em;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* 正文里出现的行内公式略微收紧，避免中英混排时行距跳动 */
+.calepin-website-content math:not([display="block"]) {
+  font-size: 1em;
+}
+
+/* 备注：noteworthy 的定理/证明框在 HTML 导出中会退化成无 class 的 <div>，
+   内容与编号都在，但边框与底色丢失。彻底解决需要在 typ/shared.typ 里
+   提供 HTML 分支（见 README 的“已知限制”）。 */

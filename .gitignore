@@ -1,0 +1,12 @@
+# 站点构建产物与工具链
+/_site/
+/.tools/
+
+# 从 notes 仓库同步进来的内容（由 scripts/sync-notes.sh 生成，不入库）
+/site/typ/
+/site/models/
+/site/lean/
+
+# Calepin 运行期产物
+/site/.calepin/
+.calepin-entry.*

@@ -1,0 +1,2 @@
+# 继承内置 calepin 主题；项目自定义放在 css/ 与 layouts/ 下
+extends = "calepin"
