@@ -1,0 +1,56 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import notes from '../../.generated/notes.json';
+const groups = [
+  { title: '实分析', english: 'Real analysis', prefix: 'typ/real/' },
+  { title: '拓扑', english: 'Topology', prefix: 'typ/topology/' },
+  { title: '几何', english: 'Geometry', prefix: 'typ/geometry/' },
+  { title: '李群与李代数', english: 'Lie theory', prefix: 'typ/lie/' },
+  { title: '数学建模', english: 'Mathematical modeling', prefix: 'models/' },
+];
+const others = notes.filter(n => !groups.some(g => n.file.startsWith(g.prefix)));
+const sections = groups.map(g => ({ ...g, notes: notes.filter(n => n.file.startsWith(g.prefix)) })).filter(g => g.notes.length);
+if (others.length) sections.push({ title: '其他笔记', english: 'Further explorations', prefix: 'other', notes: others });
+const firstNote = sections[0]?.notes[0];
+const number = (n: number) => String(n).padStart(2, '0');
+// File-format builds default to /index.html; the public home URL is /.
+// Starlight merges these entries by identity, replacing its default tags.
+const homeUrl = new URL('/', Astro.site).href;
+---
+<StarlightPage frontmatter={{ title: '数学笔记', description: '从数学直觉到形式化证明：Typst 数学笔记、Lean 4 证明与建模实践。', editUrl: false, head: [{ tag: 'link', attrs: { rel: 'canonical', href: homeUrl } }, { tag: 'meta', attrs: { property: 'og:url', content: homeUrl } }] }} headings={sections.map((g, i) => ({ depth: 2, slug: `category-${i}`, text: g.title }))}>
+  <div class="notes-home not-content">
+    <div class="notes-intro">
+      <div class="notes-eyebrow"><span class="edition-mark" aria-hidden="true">∴</span> A PERSONAL MATHEMATICAL NOTEBOOK</div>
+      <p class="notes-lead">从直觉出发，<br />在<span>证明</span>中抵达。</p>
+      <p class="notes-description">关于结构、空间与变化的学习手札。记录数学中的思考与推导，也用 Lean 4 探索形式化证明的严谨之美。</p>
+      <div class="note-tools">
+        {firstNote && <a class="primary-link" href={'/' + firstNote.file}>开始阅读 <span aria-hidden="true">↗</span></a>}
+        <a href="https://github.com/zzjrabbit/notes">浏览源码 <span aria-hidden="true">↗</span></a>
+      </div>
+      <div class="notebook-stats" aria-label="笔记概览">
+        <span><strong>{number(notes.length)}</strong> 篇笔记</span>
+        <span><strong>{number(sections.length)}</strong> 个主题</span>
+        <span class="notebook-format">原生公式 <span aria-hidden="true">/</span> PDF 随行</span>
+      </div>
+    </div>
+    {sections.length > 0 && <nav class="subject-index" aria-label="按学科浏览">
+      <span class="index-label">探索笔记</span>
+      {sections.map((group, i) => <a href={`#category-${i}`}>{group.title}<sup>{group.notes.length}</sup></a>)}
+    </nav>}
+    {sections.map((group, i) => <section class="notes-section" aria-labelledby={`category-${i}`}>
+      <div class="section-heading">
+        <span class="section-number" aria-hidden="true">{number(i + 1)}</span>
+        <h2 id={`category-${i}`}>{group.title}<span>{group.english}</span></h2>
+        <span class="section-count">{group.notes.length} 篇</span>
+      </div>
+      <div class="notes-grid">{group.notes.map((note, j) => <article class="note-card">
+        <div class="card-kicker"><span>NOTE {number(i + 1)}.{number(j + 1)}</span><span aria-hidden="true" class="card-arrow">↗</span></div>
+        <h3><a href={'/' + note.file}>{note.title}</a></h3>
+        <p>{note.description || '循着定义与命题，阅读完整的推导与证明。'}</p>
+        <div class="card-footer"><span>Typst</span><span>PDF</span><span class="card-read" aria-hidden="true">阅读全文 →</span></div>
+      </article>)}</div>
+    </section>)}
+    {!notes.length && <p class="notes-empty">手札整理中，新的笔记即将加入。</p>}
+    <div class="notebook-colophon"><span aria-hidden="true">∎</span><p>一点直觉，一步推导。<br /><span>整理所学，也为下一次思考留下线索。</span></p></div>
+  </div>
+</StarlightPage>

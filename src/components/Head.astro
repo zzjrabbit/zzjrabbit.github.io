@@ -1,0 +1,6 @@
+---
+const { head } = Astro.locals.starlightRoute;
+const is404 = /^\/404(?:\.html)?\/?$/.test(Astro.url.pathname);
+---
+{head.map(({ tag: Tag, attrs, content }) => <Tag {...attrs} set:html={content} />)}
+{is404 && <meta name="robots" content="noindex, follow" />}

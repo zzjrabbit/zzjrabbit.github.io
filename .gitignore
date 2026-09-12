@@ -1,6 +1,15 @@
 # 站点构建产物与工具链
 /_site/
+/_calepin/
+/.generated/
+/.astro/
+/.cache/
+/node_modules/
 /.tools/
+/.notes-source/
+.env
+.env.*
+!.env.example
 
 # 从 notes 仓库同步进来的内容（由 scripts/sync-notes.sh 生成，不入库）
 /site/typ/

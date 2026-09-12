@@ -1,29 +1,263 @@
-/* 站点自定义样式：在内置 calepin 主题之后加载。
-   主题暴露一组 --calepin-* 设计变量，覆盖它们比改选择器更稳。 */
-
+/* Local reading theme. Keep Calepin's 56rem drawer breakpoint in sync with JS. */
 :root {
-  /* 中文笔记需要 CJK 回退，否则中文会掉到浏览器默认字体 */
-  --calepin-font-body:
-    "Charter", "Source Serif Pro", "Noto Serif CJK SC", "Source Han Serif SC",
-    "Songti SC", "Microsoft YaHei", Georgia, serif;
-  --calepin-font-heading:
-    "Source Sans Pro", "Noto Sans CJK SC", "Source Han Sans SC",
-    "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --calepin-font-body: "Charter", "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", Georgia, serif;
+  --calepin-font-heading: "Inter", "Noto Sans CJK SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --calepin-line-height: 1.85;
+  --calepin-shell-gap: 1.75rem;
+  --calepin-sidebar-width: 13rem;
+  --calepin-color-background: #f8f7f3;
+  --calepin-color-text: #273630;
+  --calepin-color-muted: #64716a;
+  --calepin-color-border: #dce2da;
+  --calepin-color-accent: #28715b;
+  --calepin-color-accent-hover: #18503e;
+  --calepin-surface: #fffefa;
+  --calepin-surface-muted: #eef1e9;
+  --calepin-surface-raised: #fffefa;
+  --calepin-surface-code: #eef1e9;
 }
+html[data-theme="dark"] {
+  --calepin-color-background: #151c19;
+  --calepin-color-text: #dce5de;
+  --calepin-color-muted: #a1b1a6;
+  --calepin-color-border: #35443b;
+  --calepin-color-accent: #91cbb0;
+  --calepin-color-accent-hover: #b5e2c8;
+  --calepin-surface: #1b2520;
+  --calepin-surface-muted: #233029;
+  --calepin-surface-raised: #1b2520;
+  --calepin-surface-code: #202c25;
+}
+html { scroll-padding-top: calc(var(--notes-topbar-height, var(--calepin-topbar-height)) + 1.5rem); }
+body { -webkit-font-smoothing: antialiased; }
+:where(a, button, select, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--calepin-color-accent);
+  outline-offset: 4px;
+}
+.calepin-website-topbar, .calepin-website-sidebar, .calepin-website-toc {
+  font-family: var(--calepin-font-heading);
+}
+.calepin-website-topbar .calepin-site-brand-text {
+  font-size: .92rem;
+  font-weight: 650;
+  letter-spacing: -.025em;
+}
+.calepin-website-shell.grid {
+  width: min(100% - 3rem, 88rem);
+  grid-template-columns: 13rem minmax(0, 46rem) minmax(10rem, 12rem);
+  justify-content: center;
+  padding-top: 2.5rem;
+}
+.calepin-website-main {
+  padding: 2.25rem 2.5rem 3rem;
+  background: var(--calepin-surface);
+  border: 1px solid var(--calepin-color-border);
+  border-radius: .75rem;
+  box-shadow: 0 4px 24px color-mix(in srgb, var(--calepin-color-text) 3%, transparent);
+  overflow-wrap: anywhere;
+}
+.calepin-website-main h1 {
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+  line-height: 1.25;
+  letter-spacing: -.035em;
+  margin-bottom: 1.8rem;
+  text-wrap: balance;
+}
+.calepin-website-main h2 {
+  font-size: 1.45rem;
+  margin-top: 2.6rem;
+  padding-bottom: .55rem;
+  border-bottom: 1px solid var(--calepin-color-border);
+}
+.calepin-website-main h3 { font-size: 1.16rem; margin-top: 2rem; }
+.calepin-website-main :is(h1, h2, h3, h4) { scroll-margin-top: calc(var(--notes-topbar-height, var(--calepin-topbar-height)) + 1.5rem); }
+.calepin-website-main p { margin-block: 1em; }
+.calepin-website-main a { text-underline-offset: .2em; }
+.calepin-website-main pre { max-width: 100%; overflow-x: auto; }
+.calepin-website-main :is(img, svg) { max-width: 100%; }
 
-/* 行间公式留白，长公式允许横向滚动而不是撑破版心 */
-math[display="block"],
-.calepin-website-content math[display="block"] {
-  margin-block: 1.1em;
+/* Do not apply HTML display/overflow rules to MathML itself. A dedicated
+   HTML scroll container is installed by js/math.js. */
+/* No-JS fallback: retain basic overflow containment on native MathML. */
+.calepin-website-main math[display="block"] { max-width: 100%; overflow-x: auto; }
+.math-scroll > math[display="block"] { max-width: none; overflow: visible; }
+.math-scroll-inline { display: inline-block; vertical-align: middle; width: 100%; margin-block: .4rem; }
+.math-scroll.is-overflowing { border-bottom: 1px dashed var(--calepin-color-border); }
+.calepin-website-main math {
+  font-family: "STIX Two Math", "Libertinus Math", "Cambria Math", "Latin Modern Math", math;
+  font-size: 1.04em;
+  overflow-wrap: normal;
+}
+.calepin-website-main math[display="block"] { margin-block: .3rem; }
+.math-scroll {
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
-  overflow-y: hidden;
+  margin-block: 1.25rem;
+  padding: .6rem .2rem;
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+}
+.math-scroll > math { width: max-content; min-width: 100%; }
+
+/* Mathematical reading: distinct statements, quieter proofs, generous equations. */
+.math-scroll:not(.math-scroll-inline) {
+  padding: 1rem .85rem;
+  border: 1px solid var(--calepin-color-border);
+  border-radius: .45rem;
+  background: color-mix(in srgb, var(--calepin-surface-muted) 65%, var(--calepin-surface));
+  box-shadow: inset 3px 0 color-mix(in srgb, var(--calepin-color-accent) 40%, transparent);
+}
+.note-environment {
+  --environment-accent: var(--calepin-color-accent);
+  margin-block: 1.8rem;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid var(--calepin-color-border);
+  border-inline-start: 3px solid var(--environment-accent);
+  border-radius: .25rem .6rem .6rem .25rem;
+  background: color-mix(in srgb, var(--environment-accent) 5%, var(--calepin-surface));
+  min-width: 0;
+}
+.note-environment-title {
+  color: var(--environment-accent);
+  font: 650 .9rem/1.6 var(--calepin-font-heading);
+  padding-bottom: .6rem;
+  border-bottom: 1px solid var(--calepin-color-border);
+  margin-bottom: .85rem;
+}
+.note-definition { --environment-accent: #426c9a; }
+.note-remark { --environment-accent: #886426; }
+html[data-theme="dark"] .note-definition { --environment-accent: #9cbce4; }
+html[data-theme="dark"] .note-remark { --environment-accent: #d7bd83; }
+.note-proof {
+  background: transparent;
+  border: 0;
+  border-inline-start: 2px solid var(--calepin-color-border);
+  border-radius: 0;
+  padding-block: .25rem;
+}
+.note-proof .note-environment-title { border: 0; padding-bottom: 0; color: var(--calepin-color-muted); }
+.note-environment-body > :first-child { margin-top: 0; }
+.note-environment-body > :last-child { margin-bottom: 0; }
+.note-environment .math-scroll { background: var(--calepin-surface); box-shadow: none; }
+.calepin-website-main blockquote {
+  border-inline-start: 3px solid var(--calepin-color-accent);
+  margin-inline: 0;
+  padding: .3rem 1.25rem;
+  background: var(--calepin-surface-muted);
+  color: var(--calepin-color-muted);
+}
+.calepin-website-main table { border-collapse: collapse; font-size: .92em; }
+.calepin-website-main :is(th, td) { padding: .65rem .9rem; border-bottom: 1px solid var(--calepin-color-border); }
+.calepin-website-main th { background: var(--calepin-surface-muted); font-family: var(--calepin-font-heading); }
+.calepin-website-main pre { padding: 1.15rem; border: 1px solid var(--calepin-color-border); border-radius: .45rem; line-height: 1.65; }
+.calepin-website-main figure { margin: 1.75rem 0; text-align: center; }
+.calepin-website-main figcaption { font-size: .85rem; color: var(--calepin-color-muted); }
+@media (max-width: 36rem) {
+  .note-environment { padding: .85rem; }
+  .math-scroll:not(.math-scroll-inline) { padding-inline: .5rem; }
 }
 
-/* 正文里出现的行内公式略微收紧，避免中英混排时行距跳动 */
-.calepin-website-content math:not([display="block"]) {
-  font-size: 1em;
+/* Long note names wrap rather than getting clipped or widening the grid. */
+.calepin-website-sidebar { padding-right: .35rem; scrollbar-width: thin; overscroll-behavior: contain; }
+.calepin-website-sidebar, .calepin-website-toc.is-floating {
+  top: calc(var(--notes-topbar-height, var(--calepin-topbar-height)) + 1rem);
+  max-height: calc(100dvh - var(--notes-topbar-height, var(--calepin-topbar-height)) - 2rem);
+}
+.calepin-website-sidebar nav li a {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  margin: 0;
+  hyphens: none;
+  line-height: 1.5;
+  font-size: .83rem;
+  border-radius: .4rem;
+  padding: .6rem .75rem;
+}
+.calepin-website-sidebar a.active {
+  box-shadow: inset 3px 0 var(--calepin-color-accent);
+  font-weight: 650;
+}
+.notes-nav-title {
+  color: var(--calepin-color-muted);
+  font-size: .72rem;
+  font-weight: 650;
+  letter-spacing: .08em;
+  padding: .8rem .75rem .3rem;
+}
+.calepin-website-toc { min-width: 0; border-left: 1px solid var(--calepin-color-border); padding-left: .8rem; scrollbar-width: thin; }
+.calepin-website-toc a { font-size: .78rem; line-height: 1.5; overflow-wrap: anywhere; }
+.calepin-website-toc-title { font-size: .72rem; letter-spacing: .05em; }
+.calepin-website-toc a.active { border-radius: .3rem; }
+.notes-mobile-toc, .notes-drawer-close { display: none; }
+.note-card:focus-within { border-color: var(--calepin-color-accent); }
+.note-card .note-title:is(:hover, :focus-visible) { text-decoration: underline; }
+.note-card .note-title::after { content: " →"; }
+.notes-skip {
+  position: fixed; top: .5rem; left: .5rem; z-index: 100;
+  transform: translateY(-160%); background: var(--calepin-surface);
+  padding: .6rem 1rem; border: 2px solid var(--calepin-color-accent);
+}
+.notes-skip:focus { transform: none; }
+
+/* Homepage: a quiet notebook index, with summaries instead of bare links. */
+.notes-eyebrow { font: 650 .72rem var(--calepin-font-heading); letter-spacing: .16em; color: var(--calepin-color-accent); }
+.notes-intro { color: var(--calepin-color-muted); max-width: 36rem; font-size: 1.05rem; }
+.notes-meta { font: .76rem var(--calepin-font-heading); color: var(--calepin-color-muted); }
+.notes-grid { display: grid; gap: .85rem; }
+.note-card {
+  margin: 0;
+  box-shadow: none;
+  border: 1px solid var(--calepin-color-border); border-radius: .5rem;
+  padding: 1.1rem 1.25rem; background: var(--calepin-color-background);
+  transition: border-color 150ms ease, background 150ms ease;
+}
+.note-card:hover { border-color: var(--calepin-color-accent); }
+.note-card .note-title { font: 650 1.03rem/1.5 var(--calepin-font-heading); text-decoration: none; }
+.note-card p { margin: .6rem 0; color: var(--calepin-color-muted); font-size: .9rem; }
+.note-card .notes-meta { display: flex; flex-wrap: wrap; gap: .75rem; }
+
+.calepin-website-page-nav-inner { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.calepin-website-page-nav-link { min-width: 0; font-family: var(--calepin-font-heading); }
+.calepin-website-page-nav-content .calepin-website-page-nav-title { white-space: normal; overflow-wrap: anywhere; line-height: 1.5; }
+@media (max-width: 64rem) {
+  .calepin-website-page-nav-inner { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* 备注：noteworthy 的定理/证明框在 HTML 导出中会退化成无 class 的 <div>，
-   内容与编号都在，但边框与底色丢失。彻底解决需要在 typ/shared.typ 里
-   提供 HTML 分支（见 README 的“已知限制”）。 */
+/* Tablet: keep the article readable, put its TOC above the article. */
+@media (min-width: 56.001rem) and (max-width: 75rem) {
+  .calepin-website-shell.grid { grid-template-columns: 12rem minmax(0, 1fr); grid-template-areas: "sidebar toc" "sidebar main"; gap: 1.25rem; }
+  .calepin-website-toc.is-floating { position: static; max-height: 12rem; border-left: 0; padding-left: 0; }
+  .calepin-website-main { padding: 1.75rem; }
+}
+@media (max-width: 56rem) {
+  .calepin-website-shell.grid { width: min(100% - 1.5rem, 46rem); grid-template-columns: minmax(0, 1fr); grid-template-areas: "main"; padding-top: 1rem; }
+  .calepin-website-main { padding: 1.5rem; }
+  .calepin-website-nav-backdrop { top: var(--notes-topbar-height, var(--calepin-topbar-height)); }
+  .calepin-website-sidebar { top: var(--notes-topbar-height, var(--calepin-topbar-height)); max-height: calc(100dvh - var(--notes-topbar-height, var(--calepin-topbar-height))); height: calc(100dvh - var(--notes-topbar-height, var(--calepin-topbar-height))); padding-bottom: max(2rem, env(safe-area-inset-bottom)); }
+  .notes-drawer-close { display: block; width: 100%; min-height: 2.75rem; margin-bottom: 1rem; }
+  .calepin-website-shell:not(.nav-open) .calepin-website-sidebar { visibility: hidden; transition: transform 180ms ease, visibility 0s 180ms; }
+  .calepin-website-shell.nav-open .calepin-website-sidebar { visibility: visible; transition: transform 180ms ease; }
+  .calepin-website-sidebar nav li a { min-height: 2.75rem; }
+  .notes-mobile-toc { display: block; margin: 1rem 0 1.75rem; padding: .8rem 1rem; border: 1px solid var(--calepin-color-border); border-radius: .4rem; background: var(--calepin-color-background); font-family: var(--calepin-font-heading); font-size: .85rem; }
+  .notes-mobile-toc summary { font-weight: 600; }
+  .notes-mobile-toc nav ul { display: block; margin: .6rem 0 0; padding: 0; }
+  .notes-mobile-toc nav li { display: block; padding: 0; }
+  .notes-mobile-toc nav a { display: block; padding: .5rem 0; line-height: 1.5; }
+}
+@media (max-width: 36rem) {
+  .calepin-website-main { padding: 1.15rem; }
+  .calepin-website-main h1 { font-size: 1.8rem; }
+  .calepin-website-main h2 { font-size: 1.25rem; }
+  .note-card { padding: .9rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+}
+@media print {
+  .calepin-website-topbar, .calepin-website-sidebar, .calepin-website-toc, .notes-mobile-toc, .notes-skip { display: none !important; }
+  .calepin-website-shell.grid { display: block; width: 100%; padding: 0; }
+  .calepin-website-main { padding: 0; border: 0; box-shadow: none; }
+  .math-scroll { overflow: visible; }
+}

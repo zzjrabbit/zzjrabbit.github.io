@@ -20,9 +20,12 @@
       default = pkgs.mkShell {
         packages = with pkgs; [
           typst # nixpkgs 当前为 0.15.1，与笔记使用的 @preview 包匹配
+          nodejs_22 # Astro / Starlight 构建与 npm
           git
           rsync
           curl
+          coreutils # new-note 日期校验及 watch 轮询间隔
+          perl # watch-notes：核心 File::Find / Digest::SHA，无额外依赖
         ];
 
         shellHook = ''

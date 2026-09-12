@@ -1,0 +1,114 @@
+name: Sync notes and deploy Pages
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17,47 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: notes-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      changed: ${{ steps.revision.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Fetch authoritative notes
+        uses: actions/checkout@v4
+        with:
+          repository: zzjrabbit/notes
+          path: .notes-source
+          persist-credentials: false
+      - name: Identify source revisions
+        id: revision
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          notes_sha=$(git -C .notes-source rev-parse HEAD)
+          site_sha=$(git rev-parse HEAD)
+          revision="$site_sha:$notes_sha"
+          echo "Building website $site_sha with notes $notes_sha"
+          published=$(curl -fsSL --retry 2 --max-time 30 "https://zzjrabbit.github.io/build-revision.txt?run=${GITHUB_RUN_ID}" || true)
+          echo "revision=$revision" >> "$GITHUB_OUTPUT"
+          if [[ "$EVENT_NAME" == schedule && "$published" == "$revision" ]]; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Set up Node.js
+        if: steps.revision.outputs.changed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install web dependencies
+        if: steps.revision.outputs.changed == 'true'
+        run: npm ci
+      - name: Install Typst
+        if: steps.revision.outputs.changed == 'true'
+        uses: typst-community/setup-typst@v4
+        with:
+          typst-version: '0.15.1'
+      - name: Install build dependencies
+        if: steps.revision.outputs.changed == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rsync perl curl xz-utils
+          bash scripts/get-calepin.sh
+      - name: Build website from notes
+        if: steps.revision.outputs.changed == 'true'
+        env:
+          NOTES_DIR: ${{ github.workspace }}/.notes-source
+          REVISION: ${{ steps.revision.outputs.revision }}
+        run: |
+          SOURCE_DATE_EPOCH=$(git -C .notes-source log -1 --format=%ct)
+          export SOURCE_DATE_EPOCH
+          npm run check
+          bash scripts/build.sh
+          bash scripts/check-rendering.sh
+          test -s _site/index.html
+          printf '%s\n' "$REVISION" > _site/build-revision.txt
+      - name: Browser release checks
+        if: steps.revision.outputs.changed == 'true'
+        run: |
+          npx playwright install --with-deps chromium
+          node scripts/browser-check.mjs
+      - name: Upload browser diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-screenshots
+          path: .generated/screenshots
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Upload Pages artifact
+        if: steps.revision.outputs.changed == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    if: needs.build.outputs.changed == 'true'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

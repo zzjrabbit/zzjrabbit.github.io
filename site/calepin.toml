@@ -1,7 +1,7 @@
 # Calepin 站点配置 —— zzjrabbit.github.io
 # 渲染由官方 typst CLI 完成，Calepin 只负责编排（导航/索引/PDF twin/feed/搜索）。
 
-title = "Zeng Zhenjia — Mathematical Notes"
+title = "zzj — Mathematical Notes"
 description = "Lean 4 形式化证明与 Typst 数学笔记。"
 base-url = "https://zzjrabbit.github.io"
 
@@ -36,14 +36,14 @@ floating = true
 
 [[menus.main]]
 target = "index.typ"
-label = "Home"
+label = "笔记"
 
 [[menus.main]]
 target = "https://github.com/zzjrabbit/notes"
-label = "Source"
+label = "源码 ↗"
 
 [[footer.item]]
-label = "笔记内容 © Zeng Zhenjia，CC BY-SA 4.0"
+label = "笔记内容 © zzj，CC BY-SA 4.0"
 
 [[footer.item]]
 target = "https://github.com/zzjrabbit/notes/blob/main/LICENSE"

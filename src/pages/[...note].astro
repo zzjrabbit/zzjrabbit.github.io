@@ -1,0 +1,32 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import notes from '../../.generated/notes.json';
+export function getStaticPaths() {
+  return notes.map(note => ({ params: { note: note.file.replace(/\.html$/, '') }, props: { note } }));
+}
+const { note } = Astro.props;
+const stem = '/' + note.file.replace(/\.html$/, '');
+// Temporary mapping for the currently reviewed English articles. The bridge
+// does not expose article language; Calepin's root lang="en" also labels the
+// Chinese modeling article, so it is not reliable per-article metadata.
+// Replace this mapping when authoritative article language is available;
+// review it whenever an article is added or its language changes.
+const englishPrefixes = ['typ/real/', 'typ/topology/', 'typ/geometry/', 'typ/lie/'];
+const articleLang = englishPrefixes.some(prefix => note.file.startsWith(prefix)) ? 'en' : 'zh-CN';
+---
+<StarlightPage headings={note.headings} frontmatter={{ title: note.title, description: note.description, editUrl: `https://github.com/zzjrabbit/notes/edit/main/${note.file.replace(/\.html$/, '.typ')}` }}>
+  <style is:inline set:html={note.mathCSS} />
+  <div class="note-tools" data-pagefind-ignore>
+    <a href={stem + '.pdf'}>阅读 / 下载 PDF ↗</a>
+    <a href={stem + '.typ'} download aria-describedby="source-download-note">下载单文件 Typst 源码 ↓</a>
+  </div>
+  <p id="source-download-note" class="notes-meta" data-pagefind-ignore>源码下载仅含本篇文件，不含共享模板与依赖；完整编译请克隆<a href="https://github.com/zzjrabbit/notes">笔记仓库</a>并按仓库说明配置环境。</p>
+  <div class="typst-article calepin-website-main" lang={articleLang} set:html={note.html} />
+  <details class="note-source" data-pagefind-ignore>
+    <summary>查看 Typst 源码</summary>
+    <pre><code>{note.source}</code></pre>
+  </details>
+</StarlightPage>
+<script>
+  import '../../site/themes/site/js/math.js';
+</script>

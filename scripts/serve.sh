@@ -6,7 +6,9 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 calepin="${CALEPIN_BIN:-}"
 if [[ -z "$calepin" ]]; then
-  calepin=$(find "$root/.tools" -maxdepth 2 -type f -name calepin -perm -u+x 2>/dev/null | head -1)
+  for candidate in "$root"/.tools/*/calepin; do
+    if [[ -x "$candidate" ]]; then calepin="$candidate"; break; fi
+  done
 fi
 if [[ -z "$calepin" ]]; then
   echo "找不到 calepin，请先运行 scripts/get-calepin.sh" >&2
