@@ -58,30 +58,36 @@ NOTES_DIR=/path/to/notes scripts/build.sh
 
 ## 新增一篇笔记
 
-1. 在笔记仓库里正常写 `typ/<分类>/<名字>.typ`，并在文件里带上站点元数据（见下）。
+1. 在笔记仓库里正常写 `typ/<分类>/<名字>.typ`，标题/日期之外再给 `tylenotes` 传 `tags` 和 `summary`。
 2. 跑 `scripts/build.sh`。它会自动出现在首页和导航里，无需改本仓库任何配置。
 
-笔记里需要的那一小段元数据（放在 `#show: tylenotes.with(...)` 之前）：
+笔记里**没有任何网站相关的判断**，全部包在 `typ/shared.typ` 的 `tylenotes` 里，笔记只写一次调用：
 
 ```typ
-#set document(title: [Continuity])
-#metadata((
+#show: tylenotes.with(
   title: "Continuity",
   date: "2026-08-11",
   tags: ("topology", "lean"),
   summary: "一句话摘要，用于首页列表与 feed。",
-)) <website-metadata>
-#if sys.inputs.at("calepin-target", default: "") == "html" { title() }
+)
 ```
 
-说明：
+`typ/shared.typ` 负责所有分支逻辑：
 
-- `title` / `date` / `tags` / `summary` 供首页列表、feed 和导航使用；分类由**目录名**自动得出
-  （`typ/topology/...` → 拓扑），不需要手写。
-- 最后一行是给网页版显示 H1 用的。`sys.inputs` 只在 Calepin 构建时才带 `calepin-target`，
-  所以在仓库里直接 `typst compile` 时它什么都不做 —— 笔记仍然可以脱离网站单独编译（已验证）。
-- 不需要 `slug`：页面 URL 直接沿用仓库路径（`typ/topology/continuous.html`），
-  这样和 `lean/` 下的形式化文件一一对应。
+| 它做的事 | 为什么需要判断 |
+| --- | --- |
+| 产出 `<website-metadata>`（title/date/tags/summary） | 只有 Calepin 构建时会读它；普通编译时只是个不可见元素 |
+| 网页版调用内置 `title()` 排 H1 | noteworthy 的标题只存在于分页输出，HTML 导出会丢掉它 |
+| 分页版**不**调用 `title()` | 否则 PDF 会多出一整页标题页（实测过） |
+| `set document(title: ...)` | 内置 `title()` 需要它；顺带让 PDF 的 Title 元数据正确 |
+
+判断依据是 `sys.inputs` 里的 `calepin-target`，`shared.typ` 把它导出成 `is-web()`
+（将来若要把 cetz 画布包进 `html.frame`，也用这个判断）。**直接用 `typst` 编译时该键不存在**，
+于是所有网站相关分支都不触发 —— 笔记始终能脱离网站单独编译（已验证 5 篇全部通过）。
+
+分类由**目录名**自动得出（`typ/topology/...` → 拓扑），不需要手写。
+不需要 `slug`：页面 URL 直接沿用仓库路径（`typ/topology/continuous.html`），
+这样和 `lean/` 下的形式化文件一一对应。
 
 ## 已知限制
 
