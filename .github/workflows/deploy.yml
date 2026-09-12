@@ -4,7 +4,8 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: '17,47 * * * *'
+    # Every Monday at 04:17 UTC; the cadence job admits alternate weeks.
+    - cron: '17 4 * * 1'
   workflow_dispatch:
 
 permissions:
@@ -15,7 +16,29 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  cadence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    outputs:
+      due: ${{ steps.check.outputs.due }}
+    steps:
+      - name: Admit scheduled checks every fourteen days
+        id: check
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          # Fixed Monday anchor avoids ISO week-number parity errors at New Year.
+          anchor=$(date -u -d '2026-09-14 00:00:00' +%s)
+          week=$(( ($(date -u +%s) - anchor) / 604800 ))
+          if [[ "$EVENT_NAME" != schedule ]] || (( week % 2 == 0 )); then
+            echo 'due=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'due=false' >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: cadence
+    if: needs.cadence.outputs.due == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     outputs:

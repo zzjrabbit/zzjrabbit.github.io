@@ -21,7 +21,7 @@ notes 中的 `.github/workflows/publish-website.yml` 会通知网站的 `deploy.
 如果实际网站仓库或分支不同，在 notes 的 Actions variables 设置 `WEBSITE_REPOSITORY`（默认 `zzjrabbit/zzjrabbit.github.io`）和 `WEBSITE_REF`（默认 `main`）；网站 `deploy.yml` 的 push 分支、站点 base-url 与版本检查 URL 也应相应调整。
 网站仓库本地目前没有配置 remote，因此这些是按项目名称给出的默认值，并非已确认的远程部署。
 
-没有令牌或令牌过期时，notes 的通知任务会明确失败；网站仍计划每 30 分钟检查一次公开 notes 仓库作为兜底，只有源码版本变化才重新发布。GitHub 定时任务可能延迟，也可能因仓库长期无活动而暂停，并非实时保证。
+没有令牌或令牌过期时，notes 的通知任务会明确失败；网站仍计划每两周检查一次公开 notes 仓库作为兜底，只有源码版本变化才重新发布。具体为从 2026-09-14 起隔周一 UTC 04:17（北京时间 12:17）；每周触发的轻量日期判断会跳过非检查周，正常 push/手动通知不受影响。GitHub 定时任务可能延迟，也可能因仓库长期无活动而暂停，并非实时保证。
 网站也支持在 Actions 手动运行。构建失败不会进入发布任务，已上线版本保持不变；notes 的通知成功只表示请求已接受，最终发布结果查看网站仓库的 Actions。
 首次运行需验证 GitHub 环境中的构建和 Pages 配置；本地检查不能替代云端部署验证。
 
