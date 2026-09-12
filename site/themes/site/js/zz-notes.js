@@ -9,29 +9,29 @@
   const skip = document.createElement('a');
   skip.className = 'notes-skip';
   skip.href = `#${main.id}`;
-  skip.textContent = '跳到正文';
+  skip.textContent = 'Skip to content';
   document.body.prepend(skip);
 
   const nav = sidebar.querySelector('nav[aria-label="Documentation"]');
   if (nav) {
-    nav.setAttribute('aria-label', '全部笔记');
+    nav.setAttribute('aria-label', 'All notes');
     const title = document.createElement('div');
     title.className = 'notes-nav-title';
-    title.textContent = '笔记索引 / NOTES';
+    title.textContent = 'NOTE INDEX';
     nav.prepend(title);
     const home = [...nav.querySelectorAll('a')].find(a => /\/index\.html$/.test(new URL(a.href).pathname));
-    if (home) { home.textContent = '全部笔记'; home.setAttribute('aria-label', '全部笔记'); }
+    if (home) { home.textContent = 'All notes'; home.setAttribute('aria-label', 'All notes'); }
   }
 
   const toc = document.querySelector('.calepin-website-toc');
   if (toc) {
-    toc.querySelector('.calepin-website-toc-title').textContent = '本页目录';
+    toc.querySelector('.calepin-website-toc-title').textContent = 'On this page';
     const tocNav = toc.querySelector('nav');
-    tocNav.setAttribute('aria-label', '本页目录');
+    tocNav.setAttribute('aria-label', 'On this page');
     const compact = document.createElement('details');
     compact.className = 'notes-mobile-toc';
     const summary = document.createElement('summary');
-    summary.textContent = '本页目录';
+    summary.textContent = 'On this page';
     compact.append(summary, tocNav.cloneNode(true));
     compact.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
     compact.addEventListener('click', event => {
@@ -46,7 +46,7 @@
   const closeButton = document.createElement('button');
   closeButton.type = 'button';
   closeButton.className = 'notes-drawer-close outline secondary';
-  closeButton.textContent = '关闭目录 ×';
+  closeButton.textContent = 'Close navigation ×';
   closeButton.addEventListener('click', () => toggle?.click());
   sidebar.prepend(closeButton);
   const mobile = matchMedia('(max-width: 56rem)');

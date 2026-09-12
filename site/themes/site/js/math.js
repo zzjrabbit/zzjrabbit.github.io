@@ -10,7 +10,7 @@
     if (overflow) {
       box.tabIndex = 0;
       box.setAttribute('role', 'region');
-      box.setAttribute('aria-label', '数学公式，可左右滚动');
+      box.setAttribute('aria-label', 'Mathematical formula, scroll horizontally');
     } else {
       box.removeAttribute('tabindex');
       box.removeAttribute('role');

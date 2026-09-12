@@ -5,17 +5,17 @@
 
 #metadata((
   tags: ("index",),
-  summary: "个人数学笔记入口：Lean 4 形式化证明与 Typst 数学笔记。",
+  summary: "A personal mathematical notebook: Lean 4 formal proofs and Typst notes.",
   pdf: false,
 )) <website-metadata>
 
 #html.elem("div", attrs: (class: "notes-eyebrow"))[MATHEMATICAL NOTES]
 #title()
 #html.elem("p", attrs: (class: "notes-intro"))[
-  从直觉到证明，记录数学学习中的思考与推导。
-  在网页中阅读笔记，也可以切换到 PDF，或查看 Typst 源码与 Lean 形式化。
+  From intuition to proof: ideas and derivations from learning mathematics.
+  Read the notes online, switch to PDF, or explore the Typst source and Lean formalizations.
 ]
-#html.elem("p", attrs: (class: "notes-meta"))[zzj · 数学 / 形式化证明 / 计算实验]
+#html.elem("p", attrs: (class: "notes-meta"))[zzj · Mathematics / Formal proofs / Computational experiments]
 
 #let notes = calepin.pages().filter(p => p.path != "index.typ" and p.path != "404.typ")
 #let repo = "https://github.com/zzjrabbit/notes"
@@ -27,11 +27,11 @@
 }
 
 #let cat-name = (
-  "lie": "Lie 理论",
-  "topology": "拓扑",
-  "geometry": "几何",
-  "real": "实分析",
-  "models": "计算模型",
+  "lie": "Lie theory",
+  "topology": "Topology",
+  "geometry": "Geometry",
+  "real": "Real analysis",
+  "models": "Computational models",
 )
 
 #let cats = ("topology", "geometry", "lie", "real", "models") + notes.map(category).dedup().filter(c => c not in cat-name)
@@ -52,7 +52,7 @@
         #html.elem("div", attrs: (class: "notes-meta"))[
           #html.elem("span")[#p.meta.at("date", default: "")]
           #if p.path.starts-with("typ/") [
-            #link(repo + "/blob/main/lean/" + p.path.slice(4).replace(".typ", ".lean"))[Lean 形式化 ↗]
+            #link(repo + "/blob/main/lean/" + p.path.slice(4).replace(".typ", ".lean"))[Lean formalization ↗]
           ]
         ]
       ]

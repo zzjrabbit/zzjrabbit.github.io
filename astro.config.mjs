@@ -3,12 +3,12 @@ import starlight from '@astrojs/starlight';
 import sitemap from '@astrojs/sitemap';
 import { readFileSync } from 'node:fs';
 const notes = JSON.parse(readFileSync(new URL('./.generated/notes.json', import.meta.url)));
-const categories = { 'typ/real': '实分析', 'typ/topology': '拓扑', 'typ/geometry': '几何', 'typ/lie': '李群与李代数', 'models': '数学建模' };
-const sidebar = [{ label: '全部笔记', link: '/' }, ...Object.entries(categories).map(([prefix, label]) => ({
+const categories = { 'typ/real': 'Real analysis', 'typ/topology': 'Topology', 'typ/geometry': 'Geometry', 'typ/lie': 'Lie theory', 'models': 'Mathematical modeling' };
+const sidebar = [{ label: 'All notes', link: '/' }, ...Object.entries(categories).map(([prefix, label]) => ({
   label, items: notes.filter(n => n.file.startsWith(prefix + '/')).map(n => ({ label: n.title, link: '/' + n.file }))
 })).filter(group => group.items.length)];
 const known = notes.filter(n => !Object.keys(categories).some(prefix => n.file.startsWith(prefix + '/')));
-if (known.length) sidebar.push({ label: '其他笔记', items: known.map(n => ({ label: n.title, link: '/' + n.file })) });
+if (known.length) sidebar.push({ label: 'Further explorations', items: known.map(n => ({ label: n.title, link: '/' + n.file })) });
 export default defineConfig({
   site: 'https://zzjrabbit.github.io',
   outDir: './_site', publicDir: './.generated/public',
@@ -21,9 +21,9 @@ export default defineConfig({
       return { ...item, url: url.href };
     },
   }), starlight({
-    title: 'zzj', description: 'Lean 4 形式化证明与 Typst 数学笔记。',
-    defaultLocale: 'root', locales: { root: { label: '简体中文', lang: 'zh-CN' } },
-    sidebar, social: [{ icon: 'github', label: '笔记源码', href: 'https://github.com/zzjrabbit/notes' }],
+    title: 'zzj', description: 'Lean 4 formal proofs and Typst mathematical notes.',
+    defaultLocale: 'root', locales: { root: { label: 'English', lang: 'en' } },
+    sidebar, social: [{ icon: 'github', label: 'Notes source', href: 'https://github.com/zzjrabbit/notes' }],
     customCss: ['./src/styles/notes.css'],
     editLink: { baseUrl: 'https://github.com/zzjrabbit/notes/edit/main/' },
     lastUpdated: false,
