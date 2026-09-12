@@ -198,5 +198,52 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
 [data-theme='light'] .note-remark { --env-accent: #886426; }
 .note-source { margin-block: 2rem; }
 .note-source summary { cursor: pointer; color: var(--sl-color-text-accent); }
-@media (max-width: 30rem) { .note-environment { padding: .75rem; } }
+
+/* Treat adjacent pages as a quiet article index, not a pair of raised cards. */
+.pagination-links {
+  gap: 1.5rem;
+  margin-top: 2.75rem;
+}
+.pagination-links > a {
+  min-width: 0;
+  min-height: 5rem;
+  align-items: flex-start;
+  gap: .75rem;
+  padding: 1rem .25rem 0;
+  border: 0;
+  border-top: 1px solid var(--sl-color-hairline);
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--sl-color-gray-3);
+  font-size: .68rem;
+  font-weight: 650;
+  letter-spacing: .08em;
+  transition: border-color .18s, color .18s;
+}
+.pagination-links > a:hover {
+  border-color: var(--sl-color-text-accent);
+  color: var(--sl-color-text-accent);
+}
+.pagination-links > a > svg {
+  margin-top: .05rem;
+  color: var(--sl-color-text-accent);
+}
+.pagination-links .link-title {
+  display: inline-block;
+  margin-top: .35rem;
+  color: var(--sl-color-white);
+  font: 500 1rem/1.55 var(--notebook-serif);
+  letter-spacing: 0;
+  text-wrap: pretty;
+  transition: color .18s;
+}
+.pagination-links > a:hover .link-title { color: var(--sl-color-text-accent); }
+@media (max-width: 30rem) {
+  .note-environment { padding: .75rem; }
+  .pagination-links { grid-template-columns: minmax(0, 1fr); gap: 1.1rem; }
+  .pagination-links > a { min-height: 4.5rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pagination-links > a, .pagination-links .link-title { transition: none; }
+}
 @media print { .note-tools, .note-source { display: none; } .math-scroll { overflow: visible; } }
