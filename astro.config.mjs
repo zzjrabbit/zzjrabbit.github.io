@@ -4,9 +4,13 @@ import sitemap from '@astrojs/sitemap';
 import { readFileSync } from 'node:fs';
 const notes = JSON.parse(readFileSync(new URL('./.generated/notes.json', import.meta.url)));
 const categories = { 'typ/real': 'Real analysis', 'typ/topology': 'Topology', 'typ/geometry': 'Geometry', 'typ/lie': 'Lie theory', 'models': 'Mathematical modeling' };
-const sidebar = [{ label: 'All notes', link: '/' }, ...Object.entries(categories).map(([prefix, label]) => ({
-  label, items: notes.filter(n => n.file.startsWith(prefix + '/')).map(n => ({ label: n.title, link: '/' + n.file }))
-})).filter(group => group.items.length)];
+const sidebar = [
+  { label: 'All notes', link: '/' },
+  { label: 'About', link: '/about.html' },
+  ...Object.entries(categories).map(([prefix, label]) => ({
+    label, items: notes.filter(n => n.file.startsWith(prefix + '/')).map(n => ({ label: n.title, link: '/' + n.file }))
+  })).filter(group => group.items.length),
+];
 const known = notes.filter(n => !Object.keys(categories).some(prefix => n.file.startsWith(prefix + '/')));
 if (known.length) sidebar.push({ label: 'Further explorations', items: known.map(n => ({ label: n.title, link: '/' + n.file })) });
 export default defineConfig({

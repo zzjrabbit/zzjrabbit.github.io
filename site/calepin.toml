@@ -1,5 +1,5 @@
 # Calepin 站点配置 —— zzjrabbit.github.io
-# 渲染由官方 typst CLI 完成，Calepin 只负责编排（导航/索引/PDF twin/feed/搜索）。
+# 渲染由官方 typst CLI 完成，Calepin 只负责编排（导航/索引/PDF twin/搜索）。
 
 title = "zzj — Mathematical Notes"
 description = "Lean 4 formal proofs and Typst mathematical notes."
@@ -13,7 +13,7 @@ pdf = true
 # 同时发布 .typ 源码，主题会提供 HTML / PDF / Source 三视图切换
 typ = true
 
-feeds = true
+feeds = false
 search = "pagefind"
 minify = true
 

@@ -50,7 +50,7 @@ async function prepare() {
       const pdf = file.replace(/\.html$/, '.pdf');
       if (!files.includes(pdf)) throw new Error(`Missing PDF: ${pdf}`);
       notes.push(note);
-    } else if (!file.startsWith('pagefind/') && !file.startsWith('.calepin/') && !['sitemap.xml', 'robots.txt', 'index.typ', '404.typ'].includes(file)) {
+    } else if (!file.startsWith('pagefind/') && !file.startsWith('.calepin/') && !['sitemap.xml', 'robots.txt', 'atom.xml', 'index.typ', '404.typ'].includes(file)) {
       const dest = path.join('.generated/public', file);
       await mkdir(path.dirname(dest), { recursive: true });
       await cp(path.join(input, file), dest);
@@ -59,11 +59,6 @@ async function prepare() {
   if (!notes.length) throw new Error('No compiled notes; run scripts/build.sh first');
   // Hand-maintained public assets survive regeneration of the staging directory.
   await cp('public', '.generated/public', { recursive: true });
-  // Atom requires an author on the feed or on every entry. Calepin omits it.
-  const atomPath = '.generated/public/atom.xml';
-  const atom = load(await readFile(atomPath, 'utf8'), { xmlMode: true });
-  if (!atom('feed > author').length) atom('feed').prepend('<author><name>zzj</name></author>');
-  await writeFile(atomPath, atom.xml());
   await writeFile('.generated/notes.json', JSON.stringify(notes));
   console.log(`Prepared ${notes.length} Typst articles for Starlight`);
 }

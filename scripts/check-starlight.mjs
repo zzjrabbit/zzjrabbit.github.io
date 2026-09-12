@@ -32,9 +32,19 @@ for (const note of notes) {
 }
 await access('_site/pagefind/pagefind.js');
 await access('_site/index.html');
+await access('_site/about.html');
 await access('_site/404.html');
+const about = load(await readFile('_site/about.html', 'utf8'));
+assert.equal(about('h1').text().trim(), 'About', 'About page title');
+assert.deepEqual(about('.about-page h2').toArray().map(el => about(el).text().trim()), [
+  'Why this notebook exists',
+  'How I work',
+  "What you'll find",
+  'An open notebook',
+], 'About page sections');
+assert.equal(about('a[href="/"]').length > 0, true, 'About links back to notes');
 // Guard the English-only publication, including metadata and accessible labels.
-for (const file of ['index.html', '404.html', ...notes.map(note => note.file)]) {
+for (const file of ['index.html', 'about.html', '404.html', ...notes.map(note => note.file)]) {
   const $ = load(await readFile(`_site/${file}`, 'utf8'));
   assert.equal($('html').attr('lang'), 'en', `${file}: English document language`);
   $('script, style').remove();
@@ -45,6 +55,6 @@ for (const file of ['index.html', '404.html', ...notes.map(note => note.file)]) 
     }
   }
 }
-assert.doesNotMatch(await readFile('_site/atom.xml', 'utf8'), /\p{Script=Han}/u, 'English Atom feed');
-await validateRelease('_site', notes);
-console.log(`OK: ${notes.length} Starlight pages, local resources/anchors, canonical/sitemap/Atom, MathML/SVG, unchanged PDFs and search bundle`);
+await assert.rejects(access('_site/atom.xml'), 'Atom feed must not be published');
+await validateRelease('_site', notes, 'https://zzjrabbit.github.io', ['about.html']);
+console.log(`OK: ${notes.length} Starlight pages, local resources/anchors, canonical/sitemap, MathML/SVG, unchanged PDFs and search bundle`);

@@ -31,9 +31,9 @@
 
 - 根 favicon 与持久 `public/` 资源目录；桥接不再公开 Calepin 内部 manifest 和旧首页/404 模板。
 - 统一首页 `/`、文章 `.html` canonical 与 sitemap；robots 使用唯一 sitemap-index。
-- Atom feed 补作者；404 添加 `noindex, follow`。
+- 404 添加 `noindex, follow`。
 - 现有英文文章正文标记 `lang=en`，导航保持中文；下载明确说明只有单文件，完整编译需要笔记仓库。
-- 构建校验覆盖首页、404、文章、本地 head 资源、页面及跨页锚点、重复 ID、canonical/sitemap、Atom。
+- 构建校验覆盖首页、404、文章、本地 head 资源、页面及跨页锚点、重复 ID、canonical/sitemap。
 - CI 增加 Playwright Chromium 浏览器门禁，在上传 Pages 产物之前执行；失败时保留截图 7 天。构建 job 最长 30 分钟，checkout 不持久保存凭据。
 - 上游删除整个可选分类后，同步器删除旧副本，防止旧内容继续发布。
 
@@ -41,7 +41,7 @@
 
 1. 在网站仓库 Actions 确认 build 和 deploy 均成功；通知 workflow 成功仅表示请求已接受。
 2. 打开真实 `https://zzjrabbit.github.io/`，检查桌面/手机导航、深浅主题和站内搜索。
-3. 检查每篇 `.html`、PDF、单文件 `.typ`、`favicon.svg`、`atom.xml`、`robots.txt`、`sitemap-index.xml` 及其子 sitemap。
+3. 检查每篇 `.html`、PDF、单文件 `.typ`、`favicon.svg`、`robots.txt`、`sitemap-index.xml` 及其子 sitemap。
 4. 检查随机不存在路径真正返回 HTTP 404，而不是内容为错误页的 HTTP 200；确认 `/404.html` 的 noindex 元标记。
 5. 检查 HTTPS、规范 URL 与重定向终点，没有旧缓存/旧主题；核对 `build-revision.txt` 与此次网站和笔记提交 SHA。
 6. 在 notes 提交一次有意义的小改动，验证通知 → 网站构建 → 线上内容更新的完整链路。

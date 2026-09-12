@@ -1,7 +1,7 @@
 # zzjrabbit.github.io
 
 个人数学笔记的网站入口。内容来自 [zzjrabbit/notes](https://github.com/zzjrabbit/notes)（本地仓库在 `../tyle`），
-本仓库负责**编译与呈现**：保留 Calepin + Typst 作为笔记编译器，由 Astro 7.3.2 + Starlight 0.42.0 提供站点外壳、导航、搜索、网页阅读与下载入口；订阅源沿用编译产物。
+本仓库负责**编译与呈现**：保留 Calepin + Typst 作为笔记编译器，由 Astro 7.3.2 + Starlight 0.42.0 提供站点外壳、导航、搜索、网页阅读与下载入口。
 
 ## 日常只维护 notes 仓库
 
@@ -30,7 +30,7 @@ notes 中的 `.github/workflows/publish-website.yml` 会通知网站的 `deploy.
 | 环节 | 用的工具 |
 | --- | --- |
 | 站点外壳 | Astro **7.3.2** + Starlight **0.42.0**：导航、目录、浅/深色、移动菜单与 Pagefind 搜索 |
-| 笔记编译 | [Calepin](https://vincentarelbundock.github.io/calepin/)：组织 Typst 页面并生成 HTML、PDF、源码与订阅源 |
+| 笔记编译 | [Calepin](https://vincentarelbundock.github.io/calepin/)：组织 Typst 页面并生成 HTML、PDF 与源码 |
 | 排版渲染 | 官方 `typst` CLI（Calepin 只做编排，真正调用 `typst compile`） |
 | 桥接 | `scripts/prepare-starlight.mjs`：提取正文、标题、目录与数学 CSS，复制静态资源 |
 | 构建环境 | Node.js **>= 22.12**、npm；依赖版本由 `package-lock.json` 锁定 |
@@ -46,7 +46,7 @@ notes → site/ 同步副本 → Calepin + Typst → _calepin/
 ```
 
 桥接器把 HTML 正文、标题、描述、目录锚点、源码与数学 CSS 写入 `notes.json`，
-将 PDF、文章 `.typ`、订阅源等非 HTML 静态产物复制到 `.generated/public/`，补齐 Atom 作者并合并手写 `public/` 资源；排除 Calepin 内部元数据、旧首页/404 模板、旧 sitemap/robots 和 Pagefind 索引。最终 sitemap 由 Astro 统一生成。
+将 PDF、文章 `.typ` 等非 HTML 静态产物复制到 `.generated/public/`，并合并手写 `public/` 资源；排除 Calepin 内部元数据、旧首页/404 模板、旧 sitemap/robots、未发布的生成文件和 Pagefind 索引。最终 sitemap 由 Astro 统一生成。
 正文以 HTML 片段交给 Astro，**不经过 Markdown/MDX 转换**，保留原生 MathML、SVG 和定理语义标记，不引入 MathJax。
 Astro 重新生成首页、笔记外壳、404 与搜索索引，PDF 直接复制、不重新排版；构建后的校验器检查其与 `_calepin/` 中的 PDF 逐字节一致。
 已有 `typ/topology/continuous.html` 及对应 `.pdf`、`.typ` URL 保持不变。
@@ -62,7 +62,7 @@ src/
 ├── components/Footer.astro # 版权页脚
 └── styles/notes.css       # 当前网站的配色、布局、正文与数学环境样式
 site/                      # Calepin 编译源目录，不是最终界面源目录
-├── calepin.toml           # 笔记编译、PDF/源码与订阅源配置
+├── calepin.toml           # 笔记编译、PDF/源码与搜索配置
 ├── index.typ / 404.typ    # Calepin 中间页；不作为最终首页/404 发布
 ├── themes/site/           # 保留编译适配；旧 CSS/导航脚本不再控制最终界面
 │   ├── notes.typ          # 定理环境与 CeTZ 网页适配，PDF 保留原样
@@ -83,7 +83,7 @@ scripts/
 └── serve.sh               # 构建后用 Calepin 静态服务器预览 _site/
 public/                    # 手写 favicon/robots，桥接时合并到 .generated/public
 DEPLOYMENT.md              # 首次上线确认、验收和回退清单
-scripts/validate-release.mjs # 全站资源、锚点、canonical/sitemap/Atom 发布检查
+scripts/validate-release.mjs # 全站资源、锚点与 canonical/sitemap 发布检查
 tests/                     # npm run check 执行的 Node 测试（同步测试需 bash/rsync/perl）
 _calepin/                  # Calepin 中间编译产物，不入库
 .generated/
@@ -132,7 +132,7 @@ NOTES_DIR=/path/to/notes scripts/build.sh
   title: "Continuity",
   date: "2026-08-11",
   tags: ("topology", "lean"),
-  summary: "一句话摘要，用于首页列表与 feed。",
+  summary: "一句话摘要，用于首页列表。",
 )
 ```
 
@@ -157,7 +157,7 @@ NOTES_DIR=/path/to/notes scripts/build.sh
 
 最终界面由 **Starlight** 提供导航、响应式菜单、本页目录、主题切换与搜索；
 `src/pages/` 负责首页与笔记页面，`src/styles/notes.css` 负责「暖纸 / 赤陶 / 墨色」手札主题、正文衬线字体及数学环境样式。首页提供学科锚点索引、笔记计数和整卡阅读入口；深色模式使用暖墨底色，并支持键盘焦点与减少动态效果偏好。
-分组导航在 `astro.config.mjs` 中生成，页脚提供 `/atom.xml` 订阅入口。旧的 Calepin 主题 CSS、导航脚本及 `site/index.typ` 不再控制最终网站外观。
+分组导航在 `astro.config.mjs` 中生成。旧的 Calepin 主题 CSS、导航脚本及 `site/index.typ` 不再控制最终网站外观。
 
 数学继续使用 Typst 原生 MathML，**不重写公式内容、不引入 MathJax、不改笔记 PDF**。
 `site/themes/site/js/math.js` 作为保留的数学增强，由 Astro 笔记页面导入；它为行间公式与超宽行内矩阵添加滚动容器，

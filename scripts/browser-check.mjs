@@ -23,7 +23,7 @@ try {
   await mkdir('.generated/screenshots', { recursive: true });
   for (const width of [320, 390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
-    for (const file of ['index.html', 'typ/lie/cover_linear.html', 'typ/real/func_eq_fdts.html']) {
+    for (const file of ['index.html', 'about.html', 'typ/lie/cover_linear.html', 'typ/real/func_eq_fdts.html']) {
       await page.goto(`https://notes.test/${file}`);
       await page.evaluate(() => document.fonts.ready);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${width}px overflow: ${file}`);
@@ -36,6 +36,13 @@ try {
       assert.deepEqual(badMathSpacing, [], `${width}px MathML spacing: ${file}`);
     }
   }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('https://notes.test/about.html');
+  assert.equal(await page.locator('#starlight__sidebar a[aria-current="page"]').textContent(), 'About');
+  await page.screenshot({ path: '.generated/screenshots/about-mobile.png', fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('https://notes.test/about.html');
+  await page.screenshot({ path: '.generated/screenshots/about-desktop.png', fullPage: true });
   // Native math must not depend on the overflow enhancement script.
   const noJS = await browser.newContext({ javaScriptEnabled: false });
   const staticPage = await noJS.newPage();

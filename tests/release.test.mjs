@@ -16,7 +16,6 @@ test('release gate catches missing head assets, anchors and conflicting sitemap 
     await put('sitemap-index.xml', `<sitemapindex><sitemap><loc>${origin}/sitemap-0.xml</loc></sitemap></sitemapindex>`);
     await put('sitemap-0.xml', `<urlset><url><loc>${origin}/</loc></url></urlset>`);
     await put('robots.txt', `Sitemap: ${origin}/sitemap-index.xml`);
-    await put('atom.xml', '<feed><author><name>zzj</name></author></feed>');
     await validateRelease(root, []);
     await put('index.html', page('<link rel="icon" href="/missing.svg">'));
     await assert.rejects(validateRelease(root, []), /missing resource/);

@@ -3,8 +3,8 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import { load } from 'cheerio';
 
-export async function validateRelease(root, notes, origin = 'https://zzjrabbit.github.io') {
-  const files = ['index.html', '404.html', ...notes.map(n => n.file)];
+export async function validateRelease(root, notes, origin = 'https://zzjrabbit.github.io', staticPages = []) {
+  const files = ['index.html', '404.html', ...staticPages, ...notes.map(n => n.file)];
   const pages = new Map(await Promise.all(files.map(async file =>
     [file, load(await readFile(path.join(root, file), 'utf8'))])));
   const canonicalURLs = [];
@@ -46,10 +46,4 @@ export async function validateRelease(root, notes, origin = 'https://zzjrabbit.g
   }
   assert.deepEqual(sitemapURLs.sort(), canonicalURLs.sort(), 'sitemap matches public canonical URLs');
   assert.ok((await readFile(path.join(root, 'robots.txt'), 'utf8')).includes(`Sitemap: ${origin}/sitemap-index.xml`));
-  const atom = load(await readFile(path.join(root, 'atom.xml'), 'utf8'), { xmlMode: true });
-  assert.ok(atom('feed > author > name').text().trim(), 'Atom feed author');
-  assert.equal(atom('entry').length, notes.length, 'Atom covers every note');
-  for (const el of atom('entry > link').toArray()) {
-    assert.ok(canonicalURLs.includes(atom(el).attr('href')), 'Atom links use canonical note URLs');
-  }
 }
