@@ -234,5 +234,6 @@ scripts/watch-notes.sh
 
 ## 版权
 
-笔记内容 © zzj，采用 [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)；
-本仓库的站点代码采用 MIT。
+笔记内容（包括 Typst 笔记源码及其生成的文档）© zzj，采用 [CC BY-SA 4.0](https://github.com/zzjrabbit/notes/blob/main/LICENSE-CC-BY-SA-4.0)。
+笔记仓库中除 Typst 笔记内容之外的代码采用 [MIT](https://github.com/zzjrabbit/notes/blob/main/LICENSE)；本仓库的站点代码采用 MIT。
+第三方内容遵循各自的许可证。
