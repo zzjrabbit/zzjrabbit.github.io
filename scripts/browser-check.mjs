@@ -1,4 +1,4 @@
-import { chromium } from '@playwright/test';
+import { chromium, expect } from '@playwright/test';
 import { readFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
@@ -7,8 +7,12 @@ import { execFileSync } from 'node:child_process';
 const executablePath = process.env.CHROMIUM_BIN || (process.env.CI ? undefined : execFileSync('sh', ['-c', 'command -v chromium || command -v chromium-browser'], { encoding: 'utf8' }).trim());
 const browser = await chromium.launch({ executablePath, headless: true });
 const errors = [];
+let context;
+let page;
 try {
-  const context = await browser.newContext();
+  await mkdir('.generated/screenshots', { recursive: true });
+  context = await browser.newContext();
+  await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
   // Serve build artifacts inside Playwright interception; no replacement server.
   await context.route('https://notes.test/**', async route => {
     const url = new URL(route.request().url());
@@ -18,9 +22,8 @@ try {
     try { await route.fulfill({ body: await readFile(path.join('_site', file)), contentType: types[path.extname(file)] || 'application/octet-stream' }); }
     catch { await route.fulfill({ status: 404, body: 'Not found' }); }
   });
-  const page = await context.newPage();
+  page = await context.newPage();
   page.on('pageerror', error => errors.push(error.message));
-  await mkdir('.generated/screenshots', { recursive: true });
   for (const width of [320, 390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     for (const file of ['index.html', 'about.html', 'typ/lie/cover_linear.html', 'typ/real/func_eq_fdts.html']) {
@@ -81,10 +84,17 @@ try {
   await page.screenshot({ path: '.generated/screenshots/mobile.png', fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('https://notes.test/');
-  await page.locator('starlight-theme-select select:visible').selectOption('dark');
-  assert.equal(await page.locator('html').getAttribute('data-theme'), 'dark');
+  // The select is a hidden Starlight compatibility bridge. Exercise the visible
+  // radio labels, as users do, rather than trying to interact with that bridge.
+  const picker = page.locator('starlight-theme-select:visible').first();
+  const chooseTheme = async value => {
+    await picker.locator(`label:has(input[value="${value}"])`).click();
+    await expect(picker.locator(`input[value="${value}"]`)).toBeChecked();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', value);
+  };
+  await chooseTheme('dark');
   await page.screenshot({ path: '.generated/screenshots/desktop-dark.png', fullPage: true });
-  await page.locator('starlight-theme-select select:visible').selectOption('light');
+  await chooseTheme('light');
   await page.screenshot({ path: '.generated/screenshots/desktop.png', fullPage: true });
   await page.locator('site-search button').first().click();
   await page.locator('.pagefind-ui__search-input').fill('Continuity');
@@ -92,4 +102,10 @@ try {
   assert.ok((await page.locator('.pagefind-ui__result-link').allTextContents()).some(text => text.includes('Continuity')));
   assert.deepEqual(errors, []);
   console.log('OK: 5 viewport widths, long notes, mobile menu/Escape, themes, live search, no page errors');
+  await context.tracing.stop();
+} catch (error) {
+  // Preserve the failing page, including failures before the named screenshots.
+  await page?.screenshot({ path: '.generated/screenshots/failure.png', fullPage: true }).catch(() => {});
+  await context?.tracing.stop({ path: '.generated/screenshots/browser-trace.zip' }).catch(() => {});
+  throw error;
 } finally { await browser.close(); }
