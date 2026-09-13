@@ -18,6 +18,29 @@ test('retains mathematics, SVG, old anchors and relative links without Markdown 
   assert.deepEqual(note.headings.map(h => h.slug), ['existing', 'section-2']);
   assert.equal(note.source, '#let x = 2');
 });
+test('diagram ink follows the theme without inverting semantic colors or masks', () => {
+  const note = extractNote(`<main class="calepin-website-main"><h1>Diagram</h1>
+    <svg viewBox="0 0 20 20"><defs><path id="glyph" d="M0 0h2"/><mask id="cutout"><path fill="#000000"/></mask></defs>
+    <use href="#glyph" fill="#000000"/><path stroke="#000" fill="none"/>
+    <text fill="black">Label</text><path fill="#ff0000" stroke="#0055ff"/>
+    <path fill="rgb(0, 0, 0)"/><path fill="#ffffff"/></svg>
+    <img src="photo.png" alt="Unchanged photo">
+  </main>`, 'diagram.html');
+  const $ = load(note.html);
+  assert.ok($('svg').hasClass('note-diagram'));
+  assert.ok($('svg').hasClass('not-content'));
+  assert.equal($('use').attr('fill'), 'currentColor');
+  assert.equal($('use').attr('href'), '#glyph');
+  assert.equal($('path[stroke="currentColor"]').attr('fill'), 'none');
+  assert.equal($('text').attr('fill'), 'currentColor');
+  assert.equal($('path[fill="#ff0000"]').attr('stroke'), '#0055ff');
+  assert.equal($('mask path').attr('fill'), '#000000');
+  assert.equal($('path[fill="#ffffff"]').length, 1);
+  assert.equal($('path[fill="currentColor"]').length, 1);
+  assert.equal($('#glyph').attr('fill'), undefined);
+  assert.equal($('img').attr('src'), 'photo.png');
+});
+
 test('fails explicitly on missing article or heading', () => {
   assert.throws(() => extractNote('<main></main>', 'bad.html'), /one Calepin article/);
   assert.throws(() => extractNote('<main class="calepin-website-main"></main>', 'bad.html'), /missing title/);

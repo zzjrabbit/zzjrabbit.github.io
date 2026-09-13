@@ -21,6 +21,20 @@ export function extractNote(html, file) {
   // Starlight typography for the surrounding article. Do this at build time
   // so native math remains correct before JS runs and with JS disabled.
   main.find('math').addClass('not-content');
+  // Typst diagrams use literal black for glyphs and outlines. Let that ink
+  // inherit the article theme; preserve semantic colors, transparent paint,
+  // and mask luminance. No inversion filter (which would distort colors).
+  main.find('svg').addClass('note-diagram not-content').each((_, svg) => {
+    $(svg).find('*').addBack().each((_, el) => {
+      const node = $(el);
+      if (node.is('mask') || node.parents('mask').length) return;
+      for (const paint of ['fill', 'stroke']) {
+        if (/^(?:#000(?:000)?|black|rgb\(\s*0\s*,\s*0\s*,\s*0\s*\))$/i.test(node.attr(paint) || '')) {
+          node.attr(paint, 'currentColor');
+        }
+      }
+    });
+  });
   // Serialize the body as HTML, never pass MathML/SVG through Markdown or MDX.
   return { file, title, description: $('meta[name="description"]').attr('content') || '',
     html: main.html(), headings, mathCSS: $('head > style').first().text(),

@@ -31,6 +31,10 @@ export default defineConfig({
     customCss: ['./src/styles/notes.css'],
     editLink: { baseUrl: 'https://github.com/zzjrabbit/notes/edit/main/' },
     lastUpdated: false,
-    components: { Footer: './src/components/Footer.astro', Head: './src/components/Head.astro' },
+    components: {
+      Footer: './src/components/Footer.astro',
+      Head: './src/components/Head.astro',
+      ThemeSelect: './src/components/ThemeSelect.astro',
+    },
   })],
 });

@@ -173,6 +173,11 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
 .typst-article { font-family: 'Charter', 'Noto Serif CJK SC', 'Songti SC', Georgia, serif; font-size: 1.125rem; line-height: 1.9; overflow-wrap: anywhere; }
 .typst-article :is(h2,h3,h4,.note-environment-title) { font-family: var(--sl-font); }
 .typst-article :is(img,svg) { max-width: 100%; height: auto; }
+/* Inherit theme ink even for SVG shapes with the default (implicit black) fill. */
+.typst-article .note-diagram { color: var(--sl-color-text); fill: currentColor; }
+@media print {
+  .typst-article .note-diagram { color: #000; }
+}
 .typst-article pre, .note-source pre { overflow-x: auto; padding: 1rem; background: var(--sl-color-bg-sidebar); }
 .typst-article table { display: block; max-width: 100%; overflow-x: auto; }
 /* MathML roots are inline or spaced by .math-scroll, not Markdown blocks.
