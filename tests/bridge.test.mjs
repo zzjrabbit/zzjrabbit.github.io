@@ -1,7 +1,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { load } from 'cheerio';
-import { extractNote } from '../scripts/prepare-starlight.mjs';
+import { extractNote, leanSourceFor } from '../scripts/prepare-starlight.mjs';
+
+test('links only exact companion Lean files for Typst notes', () => {
+  const files = new Set(['lean/topology/continuous.lean', 'lean/Main.lean', 'lean/real/a b.lean']);
+  assert.equal(leanSourceFor('typ/topology/continuous.html', files), 'https://github.com/zzjrabbit/notes/blob/main/lean/topology/continuous.lean');
+  assert.equal(leanSourceFor('typ/real/continuous.html', files), null);
+  assert.equal(leanSourceFor('typ/topology/missing.html', files), null);
+  assert.equal(leanSourceFor('models/topology/continuous.html', files), null);
+  assert.equal(leanSourceFor('typ/topology/continuous.pdf', files), null);
+  assert.equal(leanSourceFor('typ/real/a b.html', files), 'https://github.com/zzjrabbit/notes/blob/main/lean/real/a%20b.lean');
+  assert.equal(leanSourceFor('typ/topology/continuous.html', new Set()), null);
+});
 
 test('retains mathematics, SVG, old anchors and relative links without Markdown parsing', () => {
   const note = extractNote(`<html><head><style>math { math-style: normal; }</style><meta name="description" content="测试 &amp; 描述"></head><body><main class="calepin-website-main"><h1 id="old-title">测试标题</h1><h2 id="existing">定义</h2><h3>证明</h3><section class="note-environment"><math><mi>x</mi><mo>&lt;</mo><mn>2</mn></math><svg viewBox="0 0 10 10"><path d="M0 0"/></svg><a href="../other.html#result">{not MDX}</a></section></main><script id="calepin-website-source-data" type="application/json">"#let x = 2"</script></body></html>`, 'typ/test.html');

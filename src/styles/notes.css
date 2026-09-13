@@ -160,6 +160,9 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
 .note-card p { margin: 0 0 1.5rem; font-size: .83rem; line-height: 1.8; color: var(--sl-color-gray-2); overflow-wrap: anywhere; }
 .card-footer { display: flex; align-items: center; gap: .45rem; margin-top: auto; padding-top: .85rem; border-top: 1px solid var(--sl-color-hairline); color: var(--sl-color-gray-2); font-size: .65rem; }
 .card-footer > span:not(.card-read) { padding: .1rem .4rem; background: var(--sl-color-bg-sidebar); border-radius: .15rem; }
+/* Lift the secondary link above the title's stretched whole-card link. */
+.card-footer .lean-source-link { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: .35rem; min-height: 2.75rem; padding: .2rem .5rem; border-radius: .25rem; background: var(--sl-color-bg-sidebar); text-decoration: underline; text-underline-offset: .2em; }
+.card-footer .lean-source-link:hover { background: var(--sl-color-accent-low); }
 .card-read { margin-left: auto; color: var(--sl-color-text-accent); }
 .note-card:focus-within, .note-card:hover { border-color: var(--sl-color-text-accent); transform: translateY(-2px); box-shadow: 0 6px 18px #00000008; }
 .notebook-colophon { display: flex; align-items: center; gap: 1rem; border-top: 1px solid var(--sl-color-hairline); padding-top: 1.5rem; margin-top: 3rem; color: var(--sl-color-text-accent); }

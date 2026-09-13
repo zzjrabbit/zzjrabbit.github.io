@@ -3,10 +3,22 @@ import assert from 'node:assert/strict';
 import { load } from 'cheerio';
 import { validateRelease } from './validate-release.mjs';
 const notes = JSON.parse(await readFile('.generated/notes.json', 'utf8'));
+const home = load(await readFile('_site/index.html', 'utf8'));
 for (const note of notes) {
   const html = await readFile(`_site/${note.file}`, 'utf8');
   const $ = load(html);
   const original = load(note.html);
+  const card = home('.note-card').filter((_, el) => home(el).find('h3 a').attr('href') === `/${note.file}`);
+  assert.equal(card.length, 1, `${note.file}: home card`);
+  for (const links of [$('.note-tools .lean-source-link'), card.find('.lean-source-link')]) {
+    assert.equal(links.length, note.leanSource ? 1 : 0, `${note.file}: conditional Lean link`);
+    if (note.leanSource) assert.equal(links.attr('href'), note.leanSource, `${note.file}: matching Lean source`);
+  }
+  if (note.leanSource) {
+    const lean = note.file.replace(/^typ\//, 'lean/').replace(/\.html$/, '.lean');
+    await access(`site/${lean}`);
+    assert.equal(note.leanSource, `https://github.com/zzjrabbit/notes/blob/main/${lean.split('/').map(encodeURIComponent).join('/')}`);
+  }
   assert.equal($('html').attr('lang'), 'en');
   assert.equal($('h1').length, 1, `${note.file}: single page title`);
   assert.equal($('.typst-article').attr('lang'), 'en', `${note.file}: article language`);

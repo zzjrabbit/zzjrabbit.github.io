@@ -11,6 +11,7 @@ const stem = '/' + note.file.replace(/\.html$/, '');
   <style is:inline set:html={note.mathCSS} />
   <div class="note-tools" data-pagefind-ignore>
     <a href={stem + '.pdf'}>Read / download PDF ↗</a>
+    {note.leanSource && <a class="lean-source-link" href={note.leanSource}>View Lean source <span aria-hidden="true">↗</span></a>}
     <a href={stem + '.typ'} download aria-describedby="source-download-note">Download single-file Typst source ↓</a>
   </div>
   <p id="source-download-note" class="notes-meta" data-pagefind-ignore>The source download includes only this article, without shared templates or dependencies. To compile it, clone the <a href="https://github.com/zzjrabbit/notes">notes repository</a> and follow its setup instructions.</p>

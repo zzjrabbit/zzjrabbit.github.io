@@ -41,6 +41,16 @@ export function extractNote(html, file) {
     source: JSON.parse($('#calepin-website-source-data').text() || '""') };
 }
 
+// Match the full subject-relative path, never just the basename. A companion
+// file is a source reference, not a claim that every result is formalized.
+export function leanSourceFor(file, leanFiles) {
+  if (!file.startsWith('typ/') || !file.endsWith('.html')) return null;
+  const lean = file.replace(/^typ\//, 'lean/').replace(/\.html$/, '.lean');
+  return leanFiles.has(lean)
+    ? `https://github.com/zzjrabbit/notes/blob/main/${lean.split('/').map(encodeURIComponent).join('/')}`
+    : null;
+}
+
 async function walk(dir, base = '') {
   const out = [];
   for (const entry of await readdir(dir, { withFileTypes: true })) {
@@ -54,6 +64,9 @@ async function walk(dir, base = '') {
 async function prepare() {
   const input = '_calepin';
   const files = await walk(input);
+  // Calepin does not publish Lean sources; discover the synchronized repository
+  // files directly and link to GitHub's readable, syntax-highlighted source.
+  const leanFiles = new Set((await walk('site')).filter(file => file.startsWith('lean/') && file.endsWith('.lean')));
   await rm('.generated', { recursive: true, force: true });
   await mkdir('.generated/public', { recursive: true });
   const notes = [];
@@ -63,7 +76,7 @@ async function prepare() {
       const note = extractNote(await readFile(path.join(input, file), 'utf8'), file);
       const pdf = file.replace(/\.html$/, '.pdf');
       if (!files.includes(pdf)) throw new Error(`Missing PDF: ${pdf}`);
-      notes.push(note);
+      notes.push({ ...note, leanSource: leanSourceFor(file, leanFiles) });
     } else if (!file.startsWith('pagefind/') && !file.startsWith('.calepin/') && !['sitemap.xml', 'robots.txt', 'atom.xml', 'index.typ', '404.typ'].includes(file)) {
       const dest = path.join('.generated/public', file);
       await mkdir(path.dirname(dest), { recursive: true });

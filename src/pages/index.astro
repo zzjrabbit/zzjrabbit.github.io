@@ -47,7 +47,7 @@ const homeUrl = new URL('/', Astro.site).href;
         <div class="card-kicker"><span>NOTE {number(i + 1)}.{number(j + 1)}</span><span aria-hidden="true" class="card-arrow">↗</span></div>
         <h3><a href={'/' + note.file}>{note.title}</a></h3>
         <p>{note.description || 'Follow the definitions and propositions through complete derivations and proofs.'}</p>
-        <div class="card-footer"><span>Typst</span><span>PDF</span><span class="card-read" aria-hidden="true">Read note →</span></div>
+        <div class="card-footer"><span>Typst</span><span>PDF</span>{note.leanSource && <a class="lean-source-link" href={note.leanSource} aria-label={`View Lean source for ${note.title}`}>Lean <span aria-hidden="true">↗</span></a>}<span class="card-read" aria-hidden="true">Read note →</span></div>
       </article>)}</div>
     </section>)}
     {!notes.length && <p class="notes-empty">The notebook is taking shape. New notes are on the way.</p>}
