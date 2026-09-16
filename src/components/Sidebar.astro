@@ -1,0 +1,22 @@
+---
+// Starlight's sidebar, with one addition: the label of a notebook subject links
+// to that subject's page, and the caret toggles the group. The upstream markup
+// is kept as-is otherwise; `SidebarSublist.astro` next to this file is where the
+// change lives. Registered through `components.Sidebar` in astro.config.mjs.
+//
+// The default mobile menu footer is imported through the same virtual module
+// Starlight uses, so overriding this component keeps every other override.
+import MobileMenuFooter from 'virtual:starlight/components/MobileMenuFooter';
+import SidebarPersister from '@astrojs/starlight/components/SidebarPersister.astro';
+import SidebarSublist from './SidebarSublist.astro';
+
+const { sidebar } = Astro.locals.starlightRoute;
+---
+
+<SidebarPersister>
+	<SidebarSublist sublist={sidebar} />
+</SidebarPersister>
+
+<div class="md:sl-hidden">
+	<MobileMenuFooter />
+</div>

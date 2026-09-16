@@ -92,11 +92,37 @@ try {
     assert.ok(box.x >= 0 && box.x + box.width <= 391, 'sidebar item fits mobile viewport');
   }
   await page.screenshot({ path: '.generated/screenshots/sidebar-mobile.png' });
+  // Every subject is one click away from the navigation: the group label is a
+  // link to its subject page, and the caret beside it is the group toggle.
+  const groupLinks = await page.locator('#starlight__sidebar a.group-link').evaluateAll(links => links.map(link => link.getAttribute('href')));
+  assert.deepEqual(groupLinks.slice().sort(), library.subjects.map(subject => subject.href).sort(), 'sidebar links every subject page');
+  await page.locator(`#starlight__sidebar a.group-link[href="${groupLinks[0]}"]`).click();
+  assert.equal(new URL(page.url()).pathname, groupLinks[0], 'clicking a subject group label opens that subject');
+  assert.equal(await page.locator('h1').count(), 1, 'subject page opened from the sidebar');
+  // The mobile drawer still opens and closes with the menu button and Escape.
+  await page.goto('https://notes.test/');
+  await page.locator('button[popovertarget="starlight__sidebar"]').click();
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('#starlight__sidebar').evaluate(el => el.matches(':popover-open')), false);
   await page.screenshot({ path: '.generated/screenshots/mobile.png', fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('https://notes.test/');
+  // The sidebar state persister must not mistake a label click for a toggle:
+  // after visiting a subject, coming back keeps its group open.
+  const firstGroup = page.locator('#starlight__sidebar details').filter({ has: page.locator('a.group-link') }).first();
+  const groupToggle = firstGroup.locator('summary .group-toggle');
+  const subjectHref = await firstGroup.locator('a.group-link').getAttribute('href');
+  if (!await firstGroup.evaluate(el => el.open)) await groupToggle.click();
+  await firstGroup.locator('a.group-link').click();
+  assert.equal(new URL(page.url()).pathname, subjectHref, 'sidebar label opens its subject page');
+  await page.goto('https://notes.test/');
+  assert.equal(await page.locator('#starlight__sidebar details').filter({ has: page.locator('a.group-link') }).first().evaluate(el => el.open), true, 'a label click does not collapse its group');
+  // The caret keeps collapsing and expanding the group it sits in.
+  assert.equal(await groupToggle.isVisible(), true, 'the group toggle is reachable');
+  await groupToggle.click();
+  assert.equal(await firstGroup.evaluate(el => el.open), false, 'the caret collapses the group');
+  await groupToggle.click();
+  assert.equal(await firstGroup.evaluate(el => el.open), true, 'the caret expands the group again');
   // The select is a hidden Starlight compatibility bridge. Exercise the visible
   // radio labels, as users do, rather than trying to interact with that bridge.
   const picker = page.locator('starlight-theme-select:visible').first();

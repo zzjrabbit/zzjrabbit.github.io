@@ -32,6 +32,8 @@ export default defineConfig({
       Footer: './src/components/Footer.astro',
       Head: './src/components/Head.astro',
       ThemeSelect: './src/components/ThemeSelect.astro',
+      // A subject group's label links to that subject's page (see the component).
+      Sidebar: './src/components/Sidebar.astro',
     },
   })],
 });

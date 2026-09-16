@@ -196,6 +196,7 @@ NOTES_DIR=/path/to/notes scripts/build.sh
 | `/notes.html` | 完整索引：按学科分组的紧凑条目，含日期、摘要、PDF/Lean 标记 | 笔记上百篇时仍然可扫描 |
 | `/subjects/<学科>.html` | 单个学科的完整卡片列表与简介 | 新栏目自动拥有自己的入口 |
 | 笔记页 | 顶部「学科 / All notes」面包屑，正文与 PDF/源码入口 | 从任意笔记都能回到索引与学科页 |
+| 侧边栏 | 学科分组里是该学科的笔记；**分组标题本身就是进入学科页的链接**，右侧箭头负责展开/收起 | 任意页面都能一步进入学科页 |
 
 排序一律按 `date` 从新到旧（无日期的排在最后），侧边栏、索引与学科页使用同一份顺序。
 
@@ -203,7 +204,8 @@ NOTES_DIR=/path/to/notes scripts/build.sh
 
 最终界面由 **Starlight** 提供导航、响应式菜单、本页目录、主题切换与搜索；
 `src/pages/` 负责首页、完整索引、学科页与笔记页面，`src/styles/notes.css` 负责「暖纸 / 赤陶 / 墨色」手札主题、正文衬线字体及数学环境样式。首页是尺寸固定的封面：每个学科一张卡片（含笔记数、最新一篇与日期），加上最多 5 条「最近新增」，其余笔记交给 `/notes.html`；深色模式使用暖墨底色，并支持键盘焦点与减少动态效果偏好。
-侧边栏分组、组内顺序与「All notes」入口都由 `src/lib/notebook.mjs` 依笔记生成（笔记超过 8 篇的学科默认折叠），`astro.config.mjs` 不再手写分类。旧的 Calepin 主题 CSS、导航脚本及 `site/index.typ` 不再控制最终网站外观。
+侧边栏分组、组内顺序与「All notes」入口都由 `src/lib/notebook.mjs` 依笔记生成（笔记超过 8 篇的学科默认折叠），`astro.config.mjs` 不再手写分类。
+学科分组的标题是**链接**：点击即进入该学科的页面，右侧箭头才是展开/收起（`src/components/Sidebar.astro` 覆盖 Starlight 的 `Sidebar`，`SidebarSublist.astro` 是改写后的上游模板；点击标题不会被误记为「收起该分组」）。旧的 Calepin 主题 CSS、导航脚本及 `site/index.typ` 不再控制最终网站外观。
 
 数学继续使用 Typst 原生 MathML，**不重写公式内容、不引入 MathJax、不改笔记 PDF**。
 `site/themes/site/js/math.js` 作为保留的数学增强，由 Astro 笔记页面导入；它为行间公式与超宽行内矩阵添加滚动容器，
@@ -275,6 +277,7 @@ scripts/watch-notes.sh
 - 构建可能提示 `docs` / `i18n` 内容集合为空：本站通过自定义 Astro 路由调用 `StarlightPage`，正文来自 `.generated/notes.json`，而不是这两个内容集合。这是当前架构下已知且无害的警告，不影响页面生成与搜索；不要将其他构建警告或错误也视为可忽略。
 - 笔记的 `date` 与 `tags` 优先取自 Calepin 的页面索引（`site/.calepin/website-pages.json`，编译缓存），缺失时回退到解析已发布源码里的 `#show: tylenotes.with(...)`。两条路径都读不到时桥接器会打印警告，笔记被排在最后；`check-starlight.mjs` 会因缺少日期而失败，提示重跑完整构建。改动 `tylenotes` 的调用形式时请同步检查 `parseSiteMetadata`。
 - 网页适配当前针对 `noteworthy:0.4.0` / `theoretic:0.3.1` 与 `cetz:0.5.2`；升级笔记依赖时需同步检查 `site/themes/site/notes.typ`。
+- `src/components/Sidebar.astro` 覆盖了 Starlight 的 `Sidebar` 组件，`src/components/SidebarSublist.astro` 是照 **Starlight 0.42.0** 的 `SidebarSublist.astro` 改写的（只多了「学科标题变链接」这一处，另外拦掉标题点击被记成折叠的问题）。升级 Starlight 时需与上游该文件对照，并依赖 `npm run check`、`browser-check.mjs` 重新验证分组展开/收起与状态记忆。
 - 同步器识别单行的 noteworthy / CeTZ 导入，并在其后注入适配导入；改用别名调用（如 `cetz.canvas`）或多行导入时，需要扩展适配机制。发布的源码展开区与 `.typ` 下载展示同步副本，原始可独立编译源码仍以 notes 仓库为准。
 - **Calepin 很年轻**（当前 v0.0.57，单一维护者），所以版本在本仓库里是锁定的；
   源文件全是标准 Typst，将来换工具成本很低。

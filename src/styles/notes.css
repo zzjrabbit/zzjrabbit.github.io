@@ -93,6 +93,16 @@ a, button, select, summary { -webkit-tap-highlight-color: transparent; }
   transition: background-color .15s, color .15s;
 }
 #starlight__sidebar .top-level > li > a { font-size: .85rem; font-weight: 550; }
+/* A subject group's label is a link to that subject's page; the caret beside it
+   stays the toggle, so it gets a comfortable target of its own. */
+#starlight__sidebar summary .group-link { display: flex; flex: 1 1 auto; align-items: center; gap: .5rem; min-width: 0; min-height: 2.25rem; padding: 0; border-radius: .35rem; color: inherit; text-decoration: none; }
+#starlight__sidebar summary .group-arrow { flex-shrink: 0; color: var(--sl-color-gray-3); font-size: .8rem; }
+#starlight__sidebar summary .group-link:hover .large,
+#starlight__sidebar summary .group-link:focus-visible .large { color: var(--sl-color-white); text-decoration: underline; text-underline-offset: .2em; }
+#starlight__sidebar summary .group-link:hover .group-arrow { color: var(--sl-color-text-accent); }
+#starlight__sidebar summary .group-link[aria-current='page'] { background: color-mix(in srgb, var(--sl-color-accent-low) 65%, var(--sl-color-bg-sidebar)); box-shadow: inset 2px 0 var(--sl-color-text-accent); }
+#starlight__sidebar summary .group-link[aria-current='page'] .large { color: var(--sl-color-text-accent); }
+#starlight__sidebar summary .group-toggle { display: flex; flex: 0 0 auto; align-items: center; justify-content: flex-end; min-width: 2.25rem; min-height: 2.25rem; margin-inline-end: -.4rem; }
 #starlight__sidebar .top-level a:hover,
 #starlight__sidebar summary:hover { background: var(--sl-color-gray-6); color: var(--sl-color-white); }
 #starlight__sidebar .top-level a[aria-current='page'] {
@@ -103,7 +113,8 @@ a, button, select, summary { -webkit-tap-highlight-color: transparent; }
 }
 #starlight__sidebar :is(a, summary):focus-visible { outline-offset: 2px; }
 @media (max-width: 49.999rem) {
-  #starlight__sidebar summary, #starlight__sidebar .top-level a { min-height: 2.75rem; }
+  #starlight__sidebar summary, #starlight__sidebar .top-level a,
+  #starlight__sidebar summary .group-link, #starlight__sidebar summary .group-toggle { min-height: 2.75rem; }
   #starlight__sidebar .top-level a { font-size: .9rem; }
   #starlight__sidebar .top-level > li + li { margin-top: 1rem; }
 }

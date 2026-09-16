@@ -1,0 +1,203 @@
+---
+import { Badge, Icon } from '@astrojs/starlight/components';
+import SidebarRestorePoint from '@astrojs/starlight/components/SidebarRestorePoint.astro';
+import notes from '../../.generated/notes.json';
+import subjectManifests from '../../.generated/subjects.json';
+import { buildLibrary } from '../lib/notebook.mjs';
+
+interface SidebarLink {
+  type: 'link';
+  label: string;
+  href: string;
+  isCurrent?: boolean;
+  attrs?: Record<string, unknown>;
+  badge?: { text: string; variant?: string; class?: string };
+}
+interface SidebarGroup {
+  type: 'group';
+  label: string;
+  collapsed?: boolean;
+  entries: SidebarEntry[];
+  badge?: { text: string; variant?: string; class?: string };
+}
+type SidebarEntry = SidebarLink | SidebarGroup;
+interface Props {
+  sublist: SidebarEntry[];
+  nested?: boolean;
+}
+
+const { sublist, nested } = Astro.props;
+
+// Which subject a group stands for is decided by the notes inside it, never by
+// its label, so renaming a subject (or adding a new folder) cannot mislink it.
+const library = buildLibrary(notes, subjectManifests);
+const currentPath = Astro.url.pathname;
+const subjectFor = (entry: SidebarGroup) => {
+  const first = entry.entries.find((child): child is SidebarLink => child.type === 'link');
+  return first ? library.byFile[first.href.replace(/^\//, '')] || null : null;
+};
+const containsCurrent = (entries: SidebarEntry[]): boolean =>
+  entries.some(entry => (entry.type === 'link' ? entry.isCurrent : containsCurrent(entry.entries)));
+---
+
+<ul class:list={{ 'top-level': !nested }}>
+	{
+		sublist.map((entry) => (
+			<li>
+				{entry.type === 'link' ? (
+					<a
+						href={entry.href}
+						aria-current={entry.isCurrent ? 'page' : undefined}
+						class:list={[{ large: !nested }, entry.attrs?.class]}
+						{...entry.attrs}
+					>
+						<span>{entry.label}</span>
+						{entry.badge && (
+							<Badge
+								variant={entry.badge.variant}
+								class={entry.badge.class}
+								text={entry.badge.text}
+							/>
+						)}
+					</a>
+				) : (
+					(() => {
+						const subject = subjectFor(entry);
+						const isCurrent = subject?.href === currentPath;
+						return (
+							<details open={isCurrent || containsCurrent(entry.entries) || !entry.collapsed}>
+								<summary>
+									{subject ? (
+										<a class="group-link" href={subject.href} aria-current={isCurrent ? 'page' : undefined}>
+											<span class="large">{entry.label}</span>
+											<span class="group-arrow" aria-hidden="true">↗</span>
+										</a>
+									) : (
+										<span class="group-label">
+											<span class="large">{entry.label}</span>
+											{entry.badge && (
+												<Badge
+													variant={entry.badge.variant}
+													class={entry.badge.class}
+													text={entry.badge.text}
+												/>
+											)}
+										</span>
+									)}
+									<span class="group-toggle" aria-hidden="true">
+										<Icon name="right-caret" class="caret" size="1.25rem" />
+									</span>
+								</summary>
+								<SidebarRestorePoint />
+								<Astro.self sublist={entry.entries} nested />
+							</details>
+						);
+					})()
+				)}
+			</li>
+		))
+	}
+</ul>
+
+<script>
+	// Starlight's sidebar state persister records every click inside a `<summary>`
+	// as a toggle of its group. Here the label is a link, so clicking it must not
+	// be recorded as collapsing that subject's group.
+	for (const link of document.querySelectorAll('#starlight__sidebar a.group-link')) {
+		link.addEventListener('click', event => event.stopPropagation());
+	}
+</script>
+
+<style>
+	@layer starlight.core {
+		ul {
+			--sl-sidebar-item-padding-inline: 0.5rem;
+			list-style: none;
+			padding: 0;
+		}
+
+		li {
+			overflow-wrap: anywhere;
+		}
+
+		ul ul li {
+			margin-inline-start: var(--sl-sidebar-item-padding-inline);
+			border-inline-start: 1px solid var(--sl-color-hairline-light);
+			padding-inline-start: var(--sl-sidebar-item-padding-inline);
+		}
+
+		.large {
+			font-size: var(--sl-text-lg);
+			font-weight: 600;
+			color: var(--sl-color-white);
+		}
+
+		.top-level > li + li {
+			margin-top: 0.75rem;
+		}
+
+		summary {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 0.2em var(--sl-sidebar-item-padding-inline);
+			line-height: 1.4;
+			cursor: pointer;
+			user-select: none;
+		}
+		summary::marker,
+		summary::-webkit-details-marker {
+			display: none;
+		}
+
+		.caret {
+			transition: transform 0.2s ease-in-out;
+			flex-shrink: 0;
+		}
+		:global([dir='rtl']) .caret {
+			transform: rotateZ(180deg);
+		}
+		[open] > summary .caret {
+			transform: rotateZ(90deg);
+		}
+
+		a {
+			display: block;
+			border-radius: 0.25rem;
+			text-decoration: none;
+			color: var(--sl-color-gray-2);
+			padding: 0.3em var(--sl-sidebar-item-padding-inline);
+			line-height: 1.4;
+		}
+
+		a:hover,
+		a:focus {
+			color: var(--sl-color-white);
+		}
+
+		[aria-current='page'],
+		[aria-current='page']:hover,
+		[aria-current='page']:focus {
+			font-weight: 600;
+			color: var(--sl-color-text-invert);
+			background-color: var(--sl-color-text-accent);
+		}
+
+		a > *:not(:last-child),
+		.group-label > *:not(:last-child) {
+			margin-inline-end: 0.25em;
+		}
+
+		@media (min-width: 50rem) {
+			.top-level > li + li {
+				margin-top: 0.5rem;
+			}
+			.large {
+				font-size: var(--sl-text-base);
+			}
+			a {
+				font-size: var(--sl-text-sm);
+			}
+		}
+	}
+</style>
