@@ -1,0 +1,16 @@
+---
+import { formatDate } from '../lib/notebook.mjs';
+const { note, subject } = Astro.props;
+---
+<li class="note-row">
+  <div class="row-head">
+    <h3><a href={'/' + note.file}>{note.title}</a></h3>
+    {note.date && <time class="row-date" datetime={note.date}>{formatDate(note.date)}</time>}
+  </div>
+  {note.description && <p class="row-summary">{note.description}</p>}
+  <div class="row-meta">
+    <a class="row-subject" href={subject.href}>{subject.label}</a>
+    <span class="row-format">Typst</span><span class="row-format">PDF</span>
+    {note.leanSource && <a class="lean-source-link row-lean" href={note.leanSource} aria-label={`View Lean source for ${note.title}`}>Lean <span aria-hidden="true">↗</span></a>}
+  </div>
+</li>

@@ -1,5 +1,8 @@
 ---
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import notes from '../../.generated/notes.json';
+import subjectManifests from '../../.generated/subjects.json';
+import { buildLibrary } from '../lib/notebook.mjs';
 
 const headings = [
   { depth: 2, slug: 'why-this-notebook-exists', text: 'Why this notebook exists' },
@@ -7,6 +10,11 @@ const headings = [
   { depth: 2, slug: 'what-you-will-find', text: "What you'll find" },
   { depth: 2, slug: 'open-notebook', text: 'An open notebook' },
 ];
+// Read the notebook's own subjects instead of naming them here, so this page
+// stays true when a new subject appears in the notes repository.
+const library = buildLibrary(notes, subjectManifests);
+const subjects = new Intl.ListFormat('en', { style: 'long', type: 'conjunction' })
+  .format(library.subjects.map(subject => subject.label));
 ---
 
 <StarlightPage
@@ -50,7 +58,7 @@ const headings = [
       <p class="about-section-number" aria-hidden="true">03</p>
       <div>
         <h2 id="what-you-will-find">What you'll find</h2>
-        <p>The notebook currently moves through real analysis, topology, geometry, Lie theory, and mathematical modeling. Some entries develop a concept from definitions to proofs; others connect mathematical exposition with formal verification or computation.</p>
+        <p>The notebook currently gathers {library.total} {library.total === 1 ? 'note' : 'notes'} under {library.subjects.length} {library.subjects.length === 1 ? 'subject' : 'subjects'}: {subjects}. Some entries develop a concept from definitions to proofs; others connect mathematical exposition with formal verification or computation.</p>
         <p>This is a working notebook rather than a finished textbook. Notes may grow as my understanding changes, while the derivations, references, and source remain visible.</p>
       </div>
     </section>

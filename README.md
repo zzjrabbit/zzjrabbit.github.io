@@ -41,11 +41,12 @@ notes 中的 `.github/workflows/publish-website.yml` 会通知网站的 `deploy.
 
 ```text
 notes → site/ 同步副本 → Calepin + Typst → _calepin/
-     → prepare-starlight.mjs → .generated/notes.json + .generated/public/
+     → prepare-starlight.mjs → .generated/notes.json + .generated/subjects.json + .generated/public/
      → Astro + Starlight → _site/ → check-starlight.mjs
 ```
 
-桥接器把 HTML 正文、标题、描述、目录锚点、源码与数学 CSS 写入 `notes.json`，
+桥接器把 HTML 正文、标题、描述、日期、标签、目录锚点、源码与数学 CSS 写入 `notes.json`，
+并汇总笔记目录里可选的 `subject.json`（见「栏目与首页」），
 将 PDF、文章 `.typ` 等非 HTML 静态产物复制到 `.generated/public/`，并合并手写 `public/` 资源；排除 Calepin 内部元数据、旧首页/404 模板、旧 sitemap/robots、未发布的生成文件和 Pagefind 索引。最终 sitemap 由 Astro 统一生成。
 正文以 HTML 片段交给 Astro，**不经过 Markdown/MDX 转换**，保留原生 MathML、SVG 和定理语义标记，不引入 MathJax。
 Astro 重新生成首页、笔记外壳、404 与搜索索引，PDF 直接复制、不重新排版；构建后的校验器检查其与 `_calepin/` 中的 PDF 逐字节一致。
@@ -54,11 +55,15 @@ Astro 重新生成首页、笔记外壳、404 与搜索索引，PDF 直接复制
 ## 目录结构
 
 ```
-astro.config.mjs           # 最终站点配置、分组导航、Starlight 集成与输出路径
+astro.config.mjs           # 最终站点配置、Starlight 集成与输出路径（侧边栏由笔记自动生成）
 package.json / package-lock.json  # Node 依赖与构建/检查命令
 src/
-├── pages/index.astro      # 首页、分类卡片
+├── lib/notebook.mjs       # 栏目模型：学科识别、标签/顺序、侧边栏与索引的唯一来源
+├── pages/index.astro      # 首页封面：学科卡片 + 最近新增，不随笔记数量增长
+├── pages/notes.astro      # /notes.html 完整索引，按学科分组
+├── pages/subjects/[subject].astro  # 每个学科一页，自动生成
 ├── pages/[...note].astro  # 笔记页面：Starlight 外壳 + Typst HTML + PDF/源码入口
+├── components/NoteCard.astro / NoteRow.astro  # 索引卡片与紧凑行
 ├── components/Footer.astro # 版权页脚
 └── styles/notes.css       # 当前网站的配色、布局、正文与数学环境样式
 site/                      # Calepin 编译源目录，不是最终界面源目录
@@ -88,6 +93,7 @@ tests/                     # npm run check 执行的 Node 测试（同步测试�
 _calepin/                  # Calepin 中间编译产物，不入库
 .generated/
 ├── notes.json             # 提取出的笔记元数据与正文，不入库
+├── subjects.json          # 各学科目录里可选的 subject.json 汇总，不入库
 └── public/                # 交给 Astro 原样发布的静态文件，不入库
 _site/                     # 唯一最终发布目录，不入库
 ```
@@ -122,8 +128,9 @@ NOTES_DIR=/path/to/notes scripts/build.sh
 
 ## 新增一篇笔记
 
-1. 在笔记仓库里正常写 `typ/<分类>/<名字>.typ`，标题/日期之外再给 `tylenotes` 传 `tags` 和 `summary`。
-2. 在 notes 仓库提交并推送到 `main`。自动发布完成后，它会出现在首页和导航里，无需操作本网站仓库。
+1. 在笔记仓库里正常写 `typ/<学科>/<名字>.typ`，标题/日期之外再给 `tylenotes` 传 `tags` 和 `summary`。
+2. 在 notes 仓库提交并推送到 `main`。自动发布完成后，它会出现在 `/notes.html`、对应学科页与侧边栏里
+   （属于最近 5 篇时还会出现在首页），无需操作本网站仓库。
 
 笔记里**没有任何网站相关的判断**，全部包在 `typ/shared.typ` 的 `tylenotes` 里，笔记只写一次调用：
 
@@ -153,11 +160,50 @@ NOTES_DIR=/path/to/notes scripts/build.sh
 不需要 `slug`：页面 URL 直接沿用仓库路径（`typ/topology/continuous.html`），
 这样和 `lean/` 下的形式化文件一一对应。
 
+## 栏目与首页
+
+**栏目（学科）完全由笔记仓库的目录结构生成**，网站里没有任何分类清单需要维护：
+
+| 笔记路径 | 学科 | 页面 |
+| --- | --- | --- |
+| `typ/topology/continuous.typ` | 取第二层目录 `topology` | `/subjects/topology.html` |
+| `typ/functional-analysis/sobolev.typ` | 新目录自动成为新学科 | `/subjects/functional-analysis.html` |
+| `models/cafeteria/note.typ` | 顶层目录 `models` | `/subjects/models.html` |
+
+因此**在笔记仓库新建一个目录就等于新增一个栏目**：它会自动获得首页卡片、`/notes.html` 里的分组、
+侧边栏分组和自己的学科页，不会再被塞进某个兜底分类。
+学科名默认由目录名给出（`functional-analysis` → Functional analysis，`PDE` 这样的全大写目录保持原样，
+`nlp` 这类无元音短名自动大写）。
+`src/lib/notebook.mjs` 里的 `SUBJECT_REGISTRY` 只为已有学科提供更漂亮的名称、简介和顺序；
+没登记的学科照常发布，只是没有人工润色。
+
+希望某个学科有自定义名称、简介或排序时，在**笔记仓库**对应目录放一个 `subject.json`，不需要改动本网站仓库：
+
+```json
+{ "label": "Functional analysis", "blurb": "Normed spaces, operators and the spectral point of view.", "order": 2 }
+```
+
+位置就是「命名该学科的那个目录」：`typ/<学科>/subject.json` 或 `models/subject.json`。
+三个字段都可省略，`order` 小的排前面（未指定的学科排在登记过的学科之后并按名称排序）。
+同步脚本会原样复制它，桥接器读取后写入 `.generated/subjects.json`；
+文件名写错或没有对应笔记时只打印警告，不影响构建。
+
+### 页面结构
+
+| 页面 | 内容 | 为什么这样 |
+| --- | --- | --- |
+| `/` | 封面：简介、计数、每个学科一张卡片、最近新增 5 篇 | 尺寸只随学科数变化，不随笔记数膨胀 |
+| `/notes.html` | 完整索引：按学科分组的紧凑条目，含日期、摘要、PDF/Lean 标记 | 笔记上百篇时仍然可扫描 |
+| `/subjects/<学科>.html` | 单个学科的完整卡片列表与简介 | 新栏目自动拥有自己的入口 |
+| 笔记页 | 顶部「学科 / All notes」面包屑，正文与 PDF/源码入口 | 从任意笔记都能回到索引与学科页 |
+
+排序一律按 `date` 从新到旧（无日期的排在最后），侧边栏、索引与学科页使用同一份顺序。
+
 ## 网页阅读主题
 
 最终界面由 **Starlight** 提供导航、响应式菜单、本页目录、主题切换与搜索；
-`src/pages/` 负责首页与笔记页面，`src/styles/notes.css` 负责「暖纸 / 赤陶 / 墨色」手札主题、正文衬线字体及数学环境样式。首页提供学科锚点索引、笔记计数和整卡阅读入口；深色模式使用暖墨底色，并支持键盘焦点与减少动态效果偏好。
-分组导航在 `astro.config.mjs` 中生成。旧的 Calepin 主题 CSS、导航脚本及 `site/index.typ` 不再控制最终网站外观。
+`src/pages/` 负责首页、完整索引、学科页与笔记页面，`src/styles/notes.css` 负责「暖纸 / 赤陶 / 墨色」手札主题、正文衬线字体及数学环境样式。首页是尺寸固定的封面：每个学科一张卡片（含笔记数、最新一篇与日期），加上最多 5 条「最近新增」，其余笔记交给 `/notes.html`；深色模式使用暖墨底色，并支持键盘焦点与减少动态效果偏好。
+侧边栏分组、组内顺序与「All notes」入口都由 `src/lib/notebook.mjs` 依笔记生成（笔记超过 8 篇的学科默认折叠），`astro.config.mjs` 不再手写分类。旧的 Calepin 主题 CSS、导航脚本及 `site/index.typ` 不再控制最终网站外观。
 
 数学继续使用 Typst 原生 MathML，**不重写公式内容、不引入 MathJax、不改笔记 PDF**。
 `site/themes/site/js/math.js` 作为保留的数学增强，由 Astro 笔记页面导入；它为行间公式与超宽行内矩阵添加滚动容器，
@@ -170,21 +216,23 @@ NOTES_DIR=/path/to/notes scripts/build.sh
 在仓库根目录运行：
 
 ```sh
-npm run check                        # Node 测试（桥接逻辑等），无需浏览器
+npm run check                        # Node 测试（栏目模型、桥接逻辑、发布门禁、同步），无需浏览器
 scripts/build.sh                     # 完整构建；build:web 已包含 check-starlight.mjs
 scripts/check-rendering.sh            # 对 _site/ 抽查定理/证明、MathML 与 CeTZ SVG
 node scripts/browser-check.mjs       # 对已构建的 _site/ 运行浏览器回归
 # 找不到系统 Chromium 时指定可执行文件：
 CHROMIUM_BIN=/path/to/chromium node scripts/browser-check.mjs
+CHROMIUM_PATH=/path/to/chromium node scripts/check-readability.mjs
 ```
 
 浏览器脚本需要已安装的 Chromium（默认查找 `chromium` 或 `chromium-browser`）及 `npm ci` 安装的 Playwright 依赖。
 它拦截 `https://notes.test/` 的**虚拟请求**，直接返回本地 `_site/` 文件，**不启动 HTTP 服务器**，也不替换已有预览服务。
-脚本覆盖五种视口宽度（320/390/768/1024/1440px）、首页与代表性长文、移动菜单/Escape、浅深色、搜索及页面错误，
+脚本覆盖五种视口宽度（320/390/768/1024/1440px）、首页封面、完整索引、每个学科页、代表性长文、移动菜单/Escape、浅深色、搜索及页面错误，
 截图写入 `.generated/screenshots/`（下次桥接会清理）。
-本次迁移已完成完整 `scripts/build.sh`、`npm run check`、`scripts/check-rendering.sh` 与浏览器回归：
-五种宽度下的首页、李群与实分析长文，以及移动菜单/Escape、主题切换、实际搜索均已通过。
-这不替代后续改动的重新检查，也不代表 GitHub Pages 云端部署已验证。
+`check-starlight.mjs` 另外校验：每篇笔记在完整索引与其学科页各出现一次、首页每个学科一张卡片且不直接铺开笔记、
+每篇笔记都有日期与所属学科、canonical/sitemap 与新增页面一致。
+本次改版已完成 `npm run check`、完整 `scripts/build.sh`、`scripts/check-rendering.sh`、浏览器回归与可读性检查；
+这仍不替代后续改动的重新检查，也不代表 GitHub Pages 云端部署已验证。
 
 人工回归还应覆盖全部笔记、目录锚点、键盘 Tab、源码展开/下载与 PDF 链接；
 长公式应在自己的区域滚动而不是撑宽整页。
@@ -218,13 +266,14 @@ scripts/watch-notes.sh
 # 此命令不启动服务器。在已有网站预览地址刷新查看结果。
 ```
 
-只需构建一次时仍运行 `scripts/build.sh`。新文章的分类、首页和导航继续自动生成。
-不要直接编辑同步目录；网站外观改 `src/`，导航和站点配置改 `astro.config.mjs`，数学内容改源仓库，编译适配改 `site/themes/site/notes.typ`。
+只需构建一次时仍运行 `scripts/build.sh`。新文章的分类、首页、索引、学科页和导航继续自动生成。
+不要直接编辑同步目录；网站外观改 `src/`，**栏目标签/顺序改 `src/lib/notebook.mjs` 的 `SUBJECT_REGISTRY` 或笔记仓库里的 `subject.json`**，站点配置改 `astro.config.mjs`，数学内容改源仓库，编译适配改 `site/themes/site/notes.typ`。
 同步需要 Perl（由 `nix develop` 提供），并使用内容校验恢复上轮已注入的副本，避免重复适配。
 
 ## 已知限制
 
 - 构建可能提示 `docs` / `i18n` 内容集合为空：本站通过自定义 Astro 路由调用 `StarlightPage`，正文来自 `.generated/notes.json`，而不是这两个内容集合。这是当前架构下已知且无害的警告，不影响页面生成与搜索；不要将其他构建警告或错误也视为可忽略。
+- 笔记的 `date` 与 `tags` 优先取自 Calepin 的页面索引（`site/.calepin/website-pages.json`，编译缓存），缺失时回退到解析已发布源码里的 `#show: tylenotes.with(...)`。两条路径都读不到时桥接器会打印警告，笔记被排在最后；`check-starlight.mjs` 会因缺少日期而失败，提示重跑完整构建。改动 `tylenotes` 的调用形式时请同步检查 `parseSiteMetadata`。
 - 网页适配当前针对 `noteworthy:0.4.0` / `theoretic:0.3.1` 与 `cetz:0.5.2`；升级笔记依赖时需同步检查 `site/themes/site/notes.typ`。
 - 同步器识别单行的 noteworthy / CeTZ 导入，并在其后注入适配导入；改用别名调用（如 `cetz.canvas`）或多行导入时，需要扩展适配机制。发布的源码展开区与 `.typ` 下载展示同步副本，原始可独立编译源码仍以 notes 仓库为准。
 - **Calepin 很年轻**（当前 v0.0.57，单一维护者），所以版本在本仓库里是锁定的；

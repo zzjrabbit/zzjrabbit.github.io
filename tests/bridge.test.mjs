@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { load } from 'cheerio';
-import { extractNote, leanSourceFor } from '../scripts/prepare-starlight.mjs';
+import { extractNote, leanSourceFor, normaliseTags, parseSiteMetadata } from '../scripts/prepare-starlight.mjs';
 
 test('links only exact companion Lean files for Typst notes', () => {
   const files = new Set(['lean/topology/continuous.lean', 'lean/Main.lean', 'lean/real/a b.lean']);
@@ -55,4 +55,37 @@ test('diagram ink follows the theme without inverting semantic colors or masks',
 test('fails explicitly on missing article or heading', () => {
   assert.throws(() => extractNote('<main></main>', 'bad.html'), /one Calepin article/);
   assert.throws(() => extractNote('<main class="calepin-website-main"></main>', 'bad.html'), /missing title/);
+});
+
+test('reads the site metadata a note declares, independently of Calepin internals', () => {
+  const source = `#import "../shared.typ": *
+#import "@preview/noteworthy:0.4.0": *
+#import "/themes/site/notes.typ": *
+
+#show: tylenotes.with(
+  title: "Continuity (on subsets)",
+  date: "2026-08-11",
+  tags: ("topology", "lean"),
+  summary: "Preimages of open sets, with \\"quotes\\" and (parentheses).",
+)
+
+#theorem(title: "continuity")[
+  Let $A subset RR$ and let f : A -> RR.
+  #metadata((tags: ("not-the-site-metadata",)))
+]
+`;
+  assert.deepEqual(parseSiteMetadata(source), {
+    title: 'Continuity (on subsets)',
+    date: '2026-08-11',
+    tags: ['topology', 'lean'],
+    summary: 'Preimages of open sets, with "quotes" and (parentheses).',
+  });
+  assert.deepEqual(parseSiteMetadata('#show: tylenotes.with(title: "T", date: "2026-01-01", tags: ("x"))'), { title: 'T', date: '2026-01-01', tags: ['x'] });
+  // Computed values are skipped rather than guessed at.
+  assert.deepEqual(parseSiteMetadata('#show: tylenotes.with(title: "T", date: when, tags: my-tags)'), { title: 'T' });
+  assert.deepEqual(parseSiteMetadata('#show: noteworthy.with(title: "T")'), {});
+  assert.deepEqual(parseSiteMetadata(''), {});
+  assert.deepEqual(normaliseTags('model'), ['model']);
+  assert.deepEqual(normaliseTags(['a', '', 7]), ['a']);
+  assert.deepEqual(normaliseTags(undefined), []);
 });

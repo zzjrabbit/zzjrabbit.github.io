@@ -1,0 +1,20 @@
+---
+import { formatDate } from '../lib/notebook.mjs';
+// `showSubject` is off on a subject page, where every card would repeat the
+// subject the reader is already looking at.
+const { note, subject, showSubject = true } = Astro.props;
+---
+<article class="note-card">
+  <div class="card-kicker">
+    <span>{note.date ? formatDate(note.date) : subject.label}</span>
+    <span aria-hidden="true" class="card-arrow">↗</span>
+  </div>
+  <h3><a href={'/' + note.file}>{note.title}</a></h3>
+  <p>{note.description || 'Follow the definitions and propositions through complete derivations and proofs.'}</p>
+  <div class="card-footer">
+    {showSubject && <a class="card-subject" href={subject.href}>{subject.label}</a>}
+    <span>Typst</span><span>PDF</span>
+    {note.leanSource && <a class="lean-source-link" href={note.leanSource} aria-label={`View Lean source for ${note.title}`}>Lean <span aria-hidden="true">↗</span></a>}
+    <span class="card-read" aria-hidden="true">Read note →</span>
+  </div>
+</article>

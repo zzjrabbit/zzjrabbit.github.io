@@ -3,6 +3,11 @@ import { readFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { buildLibrary } from '../src/lib/notebook.mjs';
+// Browser checks run against whatever the bridge just produced.
+const notes = JSON.parse(await readFile('.generated/notes.json', 'utf8'));
+const library = buildLibrary(notes, JSON.parse(await readFile('.generated/subjects.json', 'utf8')));
+const subjectFiles = library.subjects.map(subject => subject.href.slice(1));
 // CI installs Playwright's pinned Chromium; local Nix users can use the system browser.
 const executablePath = process.env.CHROMIUM_BIN || (process.env.CI ? undefined : execFileSync('sh', ['-c', 'command -v chromium || command -v chromium-browser'], { encoding: 'utf8' }).trim());
 const browser = await chromium.launch({ executablePath, headless: true });
@@ -26,7 +31,7 @@ try {
   page.on('pageerror', error => errors.push(error.message));
   for (const width of [320, 390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
-    for (const file of ['index.html', 'about.html', 'typ/lie/cover_linear.html', 'typ/real/func_eq_fdts.html']) {
+    for (const file of ['index.html', 'notes.html', subjectFiles[0], 'about.html', 'typ/lie/cover_linear.html', 'typ/real/func_eq_fdts.html']) {
       await page.goto(`https://notes.test/${file}`);
       await page.evaluate(() => document.fonts.ready);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${width}px overflow: ${file}`);
@@ -61,14 +66,22 @@ try {
   await noJS.close();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('https://notes.test/');
-  const subjectLinks = page.locator('.subject-index a');
-  assert.ok(await subjectLinks.count(), 'home exposes subject navigation');
-  for (const link of await subjectLinks.all()) {
-    const target = await link.getAttribute('href');
-    assert.equal(await page.locator(target).count(), 1, `subject anchor exists: ${target}`);
+  // The home page stays a cover: one card per subject, never one per note.
+  const subjectCards = page.locator('.subject-card');
+  assert.equal(await subjectCards.count(), library.subjects.length, 'home shows one card per subject');
+  assert.equal(await page.locator('.note-card').count(), 0, 'home does not list every note');
+  assert.equal(await page.locator('.recent-item').count(), library.recent.length, 'home: bounded recent list');
+  const cardTargets = await subjectCards.evaluateAll(cards => cards.map(card => card.getAttribute('href')));
+  for (const target of cardTargets) {
+    await page.goto(`https://notes.test${target}`);
+    assert.equal(await page.locator('h1').count(), 1, `subject page exists: ${target}`);
+    assert.ok(await page.locator('.note-card').count(), `subject page lists notes: ${target}`);
+    assert.equal(await page.locator('.subject-intro a[href="/notes.html"]').count(), 1, `subject page links back to the index: ${target}`);
   }
-  const notes = JSON.parse(await readFile('.generated/notes.json', 'utf8'));
-  assert.equal(await page.locator('.note-card h3 a').count(), notes.length);
+  // The complete index stays reachable and lists every note exactly once.
+  await page.goto('https://notes.test/notes.html');
+  assert.equal(await page.locator('.note-row').count(), library.total, 'index lists every note');
+  await page.goto('https://notes.test/');
   await page.locator('button[popovertarget="starlight__sidebar"]').click();
   assert.ok(await page.locator('#starlight__sidebar').evaluate(el => el.matches(':popover-open')));
   // Navigation remains comfortable to tap and long titles stay in the drawer.
@@ -101,7 +114,7 @@ try {
   await page.locator('.pagefind-ui__result-link').first().waitFor();
   assert.ok((await page.locator('.pagefind-ui__result-link').allTextContents()).some(text => text.includes('Continuity')));
   assert.deepEqual(errors, []);
-  console.log('OK: 5 viewport widths, long notes, mobile menu/Escape, themes, live search, no page errors');
+  console.log('OK: 5 viewport widths, home cover, complete index, subject pages, long notes, mobile menu/Escape, themes, live search, no page errors');
   await context.tracing.stop();
 } catch (error) {
   // Preserve the failing page, including failures before the named screenshots.

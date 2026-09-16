@@ -1,23 +1,25 @@
 ---
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
 import notes from '../../.generated/notes.json';
-const groups = [
-  { title: 'Real analysis', prefix: 'typ/real/' },
-  { title: 'Topology', prefix: 'typ/topology/' },
-  { title: 'Geometry', prefix: 'typ/geometry/' },
-  { title: 'Lie theory', prefix: 'typ/lie/' },
-  { title: 'Mathematical modeling', prefix: 'models/' },
-];
-const others = notes.filter(n => !groups.some(g => n.file.startsWith(g.prefix)));
-const sections = groups.map(g => ({ ...g, notes: notes.filter(n => n.file.startsWith(g.prefix)) })).filter(g => g.notes.length);
-if (others.length) sections.push({ title: 'Further explorations', prefix: 'other', notes: others });
-const firstNote = sections[0]?.notes[0];
+import subjectManifests from '../../.generated/subjects.json';
+import { buildLibrary, formatDate, ALL_NOTES_PATH } from '../lib/notebook.mjs';
+// The home page stays the same size no matter how many notes exist: it shows one
+// card per subject plus a short list of recent additions, and links to the full
+// index. Subjects come from the notes repository layout, never from a list here.
+const library = buildLibrary(notes, subjectManifests);
+const { subjects, recent, total } = library;
+const firstNote = subjects[0]?.notes[0] ?? recent[0] ?? null;
+const latest = library.notes.find(note => note.date)?.date || '';
 const number = (n: number) => String(n).padStart(2, '0');
+const headings = [
+  ...(subjects.length ? [{ depth: 2, slug: 'subjects', text: 'Subjects' }] : []),
+  ...(recent.length ? [{ depth: 2, slug: 'recent', text: 'Recently added' }] : []),
+];
 // File-format builds default to /index.html; the public home URL is /.
 // Starlight merges these entries by identity, replacing its default tags.
 const homeUrl = new URL('/', Astro.site).href;
 ---
-<StarlightPage frontmatter={{ title: 'Mathematical Notes', description: 'From mathematical intuition to formal proof: Typst notes, Lean 4 proofs, and mathematical modeling.', editUrl: false, head: [{ tag: 'link', attrs: { rel: 'canonical', href: homeUrl } }, { tag: 'meta', attrs: { property: 'og:url', content: homeUrl } }] }} headings={sections.map((g, i) => ({ depth: 2, slug: `category-${i}`, text: g.title }))}>
+<StarlightPage frontmatter={{ title: 'Mathematical Notes', description: 'From mathematical intuition to formal proof: Typst notes, Lean 4 proofs, and mathematical modeling.', editUrl: false, head: [{ tag: 'link', attrs: { rel: 'canonical', href: homeUrl } }, { tag: 'meta', attrs: { property: 'og:url', content: homeUrl } }] }} headings={headings}>
   <div class="notes-home not-content">
     <div class="notes-intro">
       <div class="notes-eyebrow"><span class="edition-mark" aria-hidden="true">∴</span> A PERSONAL MATHEMATICAL NOTEBOOK</div>
@@ -25,32 +27,41 @@ const homeUrl = new URL('/', Astro.site).href;
       <p class="notes-description">A notebook on structure, space, and change. Exploring mathematical ideas and derivations, and the beauty of rigorous formal proof with Lean 4.</p>
       <div class="note-tools">
         {firstNote && <a class="primary-link" href={'/' + firstNote.file}>Start reading <span aria-hidden="true">↗</span></a>}
+        <a href={ALL_NOTES_PATH}>All {total} {total === 1 ? 'note' : 'notes'} <span aria-hidden="true">↗</span></a>
         <a href="https://github.com/zzjrabbit/notes">Browse source <span aria-hidden="true">↗</span></a>
       </div>
       <div class="notebook-stats" aria-label="Notebook overview">
-        <span><strong>{number(notes.length)}</strong> {notes.length === 1 ? 'note' : 'notes'}</span>
-        <span><strong>{number(sections.length)}</strong> {sections.length === 1 ? 'subject' : 'subjects'}</span>
+        <span><strong>{number(total)}</strong> {total === 1 ? 'note' : 'notes'}</span>
+        <span><strong>{number(subjects.length)}</strong> {subjects.length === 1 ? 'subject' : 'subjects'}</span>
         <span class="notebook-format">Native math <span aria-hidden="true">/</span> PDF editions</span>
+        {latest && <span class="notebook-updated">Last note {formatDate(latest)}</span>}
       </div>
     </div>
-    {sections.length > 0 && <nav class="subject-index" aria-label="Browse by subject">
-      <span class="index-label">Explore notes</span>
-      {sections.map((group, i) => <a href={`#category-${i}`}>{group.title}<sup>{group.notes.length}</sup></a>)}
-    </nav>}
-    {sections.map((group, i) => <section class="notes-section" aria-labelledby={`category-${i}`}>
+    {subjects.length > 0 && <section class="home-section" aria-labelledby="subjects">
       <div class="section-heading">
-        <span class="section-number" aria-hidden="true">{number(i + 1)}</span>
-        <h2 id={`category-${i}`}>{group.title}</h2>
-        <span class="section-count">{group.notes.length} {group.notes.length === 1 ? 'note' : 'notes'}</span>
+        <h2 id="subjects">Subjects</h2>
+        <span class="section-count">{subjects.length} {subjects.length === 1 ? 'subject' : 'subjects'}</span>
+        <a class="section-more" href={ALL_NOTES_PATH}>All notes <span aria-hidden="true">↗</span></a>
       </div>
-      <div class="notes-grid">{group.notes.map((note, j) => <article class="note-card">
-        <div class="card-kicker"><span>NOTE {number(i + 1)}.{number(j + 1)}</span><span aria-hidden="true" class="card-arrow">↗</span></div>
-        <h3><a href={'/' + note.file}>{note.title}</a></h3>
-        <p>{note.description || 'Follow the definitions and propositions through complete derivations and proofs.'}</p>
-        <div class="card-footer"><span>Typst</span><span>PDF</span>{note.leanSource && <a class="lean-source-link" href={note.leanSource} aria-label={`View Lean source for ${note.title}`}>Lean <span aria-hidden="true">↗</span></a>}<span class="card-read" aria-hidden="true">Read note →</span></div>
-      </article>)}</div>
-    </section>)}
-    {!notes.length && <p class="notes-empty">The notebook is taking shape. New notes are on the way.</p>}
+      <div class="subject-grid">{subjects.map(subject => <a class="subject-card" href={subject.href}>
+        <span class="subject-count">{subject.count} {subject.count === 1 ? 'note' : 'notes'}</span>
+        <h3>{subject.label}</h3>
+        {subject.blurb && <p class="subject-blurb">{subject.blurb}</p>}
+        {subject.latest && <p class="subject-latest"><span class="subject-latest-label">Latest</span> {subject.latest.title}{subject.updated && <time datetime={subject.updated}> · {formatDate(subject.updated)}</time>}</p>}
+        <span class="subject-more" aria-hidden="true">Browse subject →</span>
+      </a>)}</div>
+    </section>}
+    {recent.length > 0 && <section class="home-section" aria-labelledby="recent">
+      <div class="section-heading">
+        <h2 id="recent">Recently added</h2>
+        <span class="section-count">Newest first</span>
+      </div>
+      <ol class="recent-list">{recent.map(note => <li class="recent-item">
+        <a class="recent-title" href={'/' + note.file}>{note.title}</a>
+        <span class="recent-meta">{library.byFile[note.file] && <a class="recent-subject" href={library.byFile[note.file].href}>{library.byFile[note.file].label}</a>}{note.date && <time datetime={note.date}>{formatDate(note.date)}</time>}</span>
+      </li>)}</ol>
+    </section>}
+    {!total && <p class="notes-empty">The notebook is taking shape. New notes are on the way.</p>}
     <div class="notebook-colophon"><span aria-hidden="true">∎</span><p>One intuition, one deduction at a time.<br /><span>Gathering what I learn, leaving a trail for the next idea.</span></p></div>
   </div>
 </StarlightPage>

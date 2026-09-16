@@ -1,0 +1,36 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import NoteRow from '../components/NoteRow.astro';
+import notes from '../../.generated/notes.json';
+import subjectManifests from '../../.generated/subjects.json';
+import { buildLibrary, formatDate } from '../lib/notebook.mjs';
+// The complete index: one section per subject, dense rows instead of cards so
+// the page stays readable when the notebook grows.
+const library = buildLibrary(notes, subjectManifests);
+const { subjects, total } = library;
+const latest = library.notes.find(note => note.date)?.date || '';
+const headings = subjects.map(subject => ({ depth: 2, slug: `subject-${subject.slug}`, text: subject.label }));
+const description = `Every note in the notebook, grouped into ${subjects.length} ${subjects.length === 1 ? 'subject' : 'subjects'} and ordered newest first.`;
+---
+<StarlightPage frontmatter={{ title: 'All notes', description, editUrl: false }} headings={headings}>
+  <div class="notes-index not-content">
+    <header class="index-intro">
+      <p class="notes-eyebrow"><span class="edition-mark" aria-hidden="true">∴</span> COMPLETE INDEX</p>
+      <p class="index-lead">{total} {total === 1 ? 'note' : 'notes'} across {subjects.length} {subjects.length === 1 ? 'subject' : 'subjects'}, newest first.</p>
+      {latest && <p class="notes-meta">Last note added {formatDate(latest)} · <a href="/">back to the overview</a></p>}
+    </header>
+    {subjects.length > 1 && <nav class="subject-index" aria-label="Jump to a subject">
+      <span class="index-label">Jump to</span>
+      {subjects.map(subject => <a href={`#subject-${subject.slug}`}>{subject.label}<sup>{subject.count}</sup></a>)}
+    </nav>}
+    {subjects.map(subject => <section class="notes-section" aria-labelledby={`subject-${subject.slug}`}>
+      <div class="section-heading">
+        <h2 id={`subject-${subject.slug}`}>{subject.label}</h2>
+        <span class="section-count">{subject.count} {subject.count === 1 ? 'note' : 'notes'}{subject.updated && <span class="section-updated"> · {formatDate(subject.updated)}</span>}</span>
+        <a class="section-more" href={subject.href}>Subject page <span aria-hidden="true">↗</span></a>
+      </div>
+      <ol class="note-rows">{subject.notes.map(note => <NoteRow note={note} subject={subject} />)}</ol>
+    </section>)}
+    {!total && <p class="notes-empty">The notebook is taking shape. New notes are on the way.</p>}
+  </div>
+</StarlightPage>

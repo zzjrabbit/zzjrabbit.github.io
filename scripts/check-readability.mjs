@@ -4,6 +4,11 @@ import { chromium } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import { buildLibrary } from '../src/lib/notebook.mjs';
+const library = buildLibrary(
+  JSON.parse(await readFile('.generated/notes.json', 'utf8')),
+  JSON.parse(await readFile('.generated/subjects.json', 'utf8')));
+const subjectPage = library.subjects[0].href;
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH });
 try {
   const page = await browser.newPage();
@@ -16,7 +21,7 @@ try {
   });
   const failures = [];
   for (const theme of ['light', 'dark']) {
-    for (const file of ['/', '/about.html', '/typ/lie/cover_linear.html', '/typ/real/func_eq_fdts.html']) {
+    for (const file of ['/', '/notes.html', subjectPage, '/about.html', '/typ/lie/cover_linear.html', '/typ/real/func_eq_fdts.html']) {
       await page.setViewportSize({ width: 1440, height: 1000 });
       await page.goto('https://notes.test' + file);
       await page.addStyleTag({ content: '* { transition: none !important; }' });
@@ -27,7 +32,7 @@ try {
         const rgb = value => { ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = value; ctx.fillRect(0, 0, 1, 1); const c = [...ctx.getImageData(0, 0, 1, 1).data]; return [c[0], c[1], c[2], c[3] / 255]; };
         const luminance = channels => channels.slice(0, 3).map(v => v / 255).map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4).reduce((sum, v, i) => sum + v * [.2126, .7152, .0722][i], 0);
         const results = [];
-        const selectors = '.notes-description, .notes-meta, .notes-license, .note-card p, .card-kicker, .card-footer, .section-count, .note-tools a, .subject-index a, .about-page section p, .typst-article p, .note-environment-title, starlight-toc a, #starlight__sidebar a, .pagination-links a';
+        const selectors = '.notes-description, .notes-meta, .notes-license, .note-card p, .card-kicker, .card-footer, .section-count, .note-tools a, .subject-index a, .about-page section p, .typst-article p, .note-environment-title, starlight-toc a, #starlight__sidebar a, .pagination-links a, .subject-card h3, .subject-blurb, .subject-latest, .subject-count, .recent-title, .recent-meta, .row-summary, .row-meta, .row-date, .note-context, .index-lead, .subject-lead, .section-heading .section-more';
         for (const el of document.querySelectorAll(selectors)) {
           if (!el.getClientRects().length) continue;
           const style = getComputedStyle(el);
@@ -68,11 +73,11 @@ try {
     }
   }
   assert.deepEqual(failures, [], 'Sampled normal text must reach 4.5:1 contrast');
-  await page.goto('https://notes.test/');
+  await page.goto(`https://notes.test${subjectPage}`);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const card = page.locator('.note-card').first();
-  await card.locator('a').focus();
+  await card.locator('h3 a').focus();
   assert.equal(await card.evaluate(el => getComputedStyle(el).transform), 'none');
   assert.ok(await card.evaluate(el => parseFloat(getComputedStyle(el).outlineWidth) >= 2));
-  console.log('Readability checks passed: sampled contrast, 200% root text, text spacing, reduced motion and card focus.');
+  console.log('Readability checks passed: sampled contrast on home/index/subject/note pages, 200% root text, text spacing, reduced motion and card focus.');
 } finally { await browser.close(); }

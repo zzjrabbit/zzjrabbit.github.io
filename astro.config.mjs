@@ -2,17 +2,14 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import sitemap from '@astrojs/sitemap';
 import { readFileSync } from 'node:fs';
-const notes = JSON.parse(readFileSync(new URL('./.generated/notes.json', import.meta.url)));
-const categories = { 'typ/real': 'Real analysis', 'typ/topology': 'Topology', 'typ/geometry': 'Geometry', 'typ/lie': 'Lie theory', 'models': 'Mathematical modeling' };
-const sidebar = [
-  { label: 'All notes', link: '/' },
-  { label: 'About', link: '/about.html' },
-  ...Object.entries(categories).map(([prefix, label]) => ({
-    label, items: notes.filter(n => n.file.startsWith(prefix + '/')).map(n => ({ label: n.title, link: '/' + n.file }))
-  })).filter(group => group.items.length),
-];
-const known = notes.filter(n => !Object.keys(categories).some(prefix => n.file.startsWith(prefix + '/')));
-if (known.length) sidebar.push({ label: 'Further explorations', items: known.map(n => ({ label: n.title, link: '/' + n.file })) });
+import { buildLibrary, sidebar } from './src/lib/notebook.mjs';
+const read = file => {
+  try { return JSON.parse(readFileSync(new URL(file, import.meta.url), 'utf8')); }
+  catch { return {}; }
+};
+// Subjects, note order and navigation all come from the published notes, so a
+// new folder in the notes repository shows up without editing this file.
+const library = buildLibrary(read('./.generated/notes.json'), read('./.generated/subjects.json'));
 export default defineConfig({
   site: 'https://zzjrabbit.github.io',
   outDir: './_site', publicDir: './.generated/public',
@@ -27,7 +24,7 @@ export default defineConfig({
   }), starlight({
     title: 'zzj', description: 'Lean 4 formal proofs and Typst mathematical notes.',
     defaultLocale: 'root', locales: { root: { label: 'English', lang: 'en' } },
-    sidebar, social: [{ icon: 'github', label: 'Notes source', href: 'https://github.com/zzjrabbit/notes' }],
+    sidebar: sidebar(library), social: [{ icon: 'github', label: 'Notes source', href: 'https://github.com/zzjrabbit/notes' }],
     customCss: ['./src/styles/notes.css'],
     editLink: { baseUrl: 'https://github.com/zzjrabbit/notes/edit/main/' },
     lastUpdated: false,

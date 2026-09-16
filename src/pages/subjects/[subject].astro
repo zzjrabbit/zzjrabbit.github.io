@@ -1,0 +1,33 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import NoteCard from '../../components/NoteCard.astro';
+import notes from '../../../.generated/notes.json';
+import subjectManifests from '../../../.generated/subjects.json';
+import { buildLibrary, formatDate, ALL_NOTES_PATH } from '../../lib/notebook.mjs';
+// One page per subject, generated from the notes repository layout: a new notes
+// directory becomes a new subject page without any edit here.
+const library = buildLibrary(notes, subjectManifests);
+// Astro hoists getStaticPaths out of the component, so it builds its own view of
+// the same library instead of closing over the one below.
+export function getStaticPaths() {
+  return buildLibrary(notes, subjectManifests).subjects
+    .map(subject => ({ params: { subject: subject.slug }, props: { subject } }));
+}
+const { subject } = Astro.props;
+const others = library.subjects.filter(other => other.key !== subject.key);
+const description = subject.blurb || `Notes filed under ${subject.label} in this mathematical notebook.`;
+---
+<StarlightPage frontmatter={{ title: subject.label, description, editUrl: false }} headings={[]}>
+  <div class="subject-page not-content">
+    <header class="subject-intro">
+      <p class="notes-eyebrow"><span class="edition-mark" aria-hidden="true">∴</span> SUBJECT</p>
+      <p class="subject-lead">{subject.blurb || `Everything filed under ${subject.label} in this notebook.`}</p>
+      <p class="notes-meta">{subject.count} {subject.count === 1 ? 'note' : 'notes'}{subject.updated && <span> · last note {formatDate(subject.updated)}</span>} · <a href={ALL_NOTES_PATH}>all notes</a> · <a href="/">overview</a></p>
+    </header>
+    <div class="notes-grid">{subject.notes.map(note => <NoteCard note={note} subject={subject} showSubject={false} />)}</div>
+    {others.length > 0 && <nav class="subject-index subject-index-others" aria-label="Other subjects">
+      <span class="index-label">Other subjects</span>
+      {others.map(other => <a href={other.href}>{other.label}<sup>{other.count}</sup></a>)}
+    </nav>}
+  </div>
+</StarlightPage>

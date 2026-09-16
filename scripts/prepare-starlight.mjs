@@ -1,6 +1,7 @@
 import { readFile, writeFile, mkdir, readdir, cp, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { load } from 'cheerio';
+import { subjectKey } from '../src/lib/notebook.mjs';
 
 export function extractNote(html, file) {
   const $ = load(html);
@@ -51,6 +52,170 @@ export function leanSourceFor(file, leanFiles) {
     : null;
 }
 
+/** Index just past the bracket opened at `start`, ignoring brackets inside strings. */
+function skipBalanced(text, start) {
+  let depth = 0;
+  for (let i = start; i < text.length; i += 1) {
+    const char = text[i];
+    if (char === '"') {
+      i = skipString(text, i) - 1;
+      continue;
+    }
+    if ('([{'.includes(char)) depth += 1;
+    else if (')]}'.includes(char)) {
+      depth -= 1;
+      if (depth === 0) return i + 1;
+    }
+  }
+  return -1;
+}
+
+/** Index just past the string literal starting at `start`, plus its value. */
+function readString(text, start) {
+  let value = '';
+  for (let i = start + 1; i < text.length; i += 1) {
+    const char = text[i];
+    if (char === '\\') {
+      const escapes = { n: '\n', t: '\t', r: '\r', '"': '"', '\\': '\\' };
+      value += escapes[text[i + 1]] ?? text[i + 1];
+      i += 1;
+    } else if (char === '"') {
+      return [value, i + 1];
+    } else {
+      value += char;
+    }
+  }
+  return [value, text.length];
+}
+
+const skipString = (text, start) => readString(text, start)[1];
+
+/** Read the literal arguments of a Typst call body, ignoring nested calls. */
+function readLiteralArguments(text) {
+  const values = {};
+  let depth = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    if (char === '"') {
+      i = skipString(text, i) - 1;
+      continue;
+    }
+    if ('([{'.includes(char)) {
+      depth += 1;
+      continue;
+    }
+    if (')]}'.includes(char)) {
+      depth -= 1;
+      continue;
+    }
+    if (depth !== 0 || !/[A-Za-z_]/.test(char)) continue;
+    const name = /^[A-Za-z0-9_]+/.exec(text.slice(i))[0];
+    let cursor = i + name.length;
+    while (/\s/.test(text[cursor])) cursor += 1;
+    if (text[cursor] !== ':') {
+      i += name.length - 1;
+      continue;
+    }
+    cursor += 1;
+    while (/\s/.test(text[cursor])) cursor += 1;
+    const literal = readLiteral(text, cursor);
+    if (literal) values[name] = literal.value;
+    i = (literal ? literal.next : cursor) - 1;
+  }
+  return values;
+}
+
+/** A string or a parenthesised list of strings; anything computed is skipped. */
+function readLiteral(text, index) {
+  if (text[index] === '"') {
+    const [value, next] = readString(text, index);
+    return { value, next };
+  }
+  if (text[index] !== '(' && text[index] !== '[') return null;
+  const end = skipBalanced(text, index);
+  if (end < 0) return { value: null, next: text.length };
+  const items = [];
+  let cursor = index + 1;
+  while (cursor < end - 1) {
+    const char = text[cursor];
+    if (/[\s,]/.test(char)) cursor += 1;
+    else if (char === '"') {
+      const [item, next] = readString(text, cursor);
+      items.push(item);
+      cursor = next;
+    } else return { value: null, next: end };
+  }
+  return { value: items, next: end };
+}
+
+/**
+ * The site metadata a note declares through `#show: tylenotes.with(...)`.
+ *
+ * Calepin publishes the same values in its own page index; reading them from the
+ * note's published source as well keeps this bridge working — and testable —
+ * even when that internal cache changes shape. `tylenotes` only accepts string
+ * literals, so anything computed is ignored instead of guessed at.
+ */
+export function parseSiteMetadata(source) {
+  const text = String(source || '');
+  const call = text.search(/#show:\s*tylenotes\.with\s*\(/);
+  if (call < 0) return {};
+  const open = text.indexOf('(', call);
+  const end = skipBalanced(text, open);
+  if (end < 0) return {};
+  const values = readLiteralArguments(text.slice(open + 1, end - 1));
+  const meta = {};
+  for (const key of ['title', 'date', 'summary']) {
+    if (typeof values[key] === 'string' && values[key].trim()) meta[key] = values[key].trim();
+  }
+  const tags = normaliseTags(values.tags);
+  if (tags.length) meta.tags = tags;
+  return meta;
+}
+
+/** Tags may be declared as `("a", "b")` or as a single string. */
+export function normaliseTags(value) {
+  const list = Array.isArray(value) ? value : [value];
+  return list.filter(tag => typeof tag === 'string' && tag.trim()).map(tag => tag.trim());
+}
+
+/**
+ * Calepin's own page index, which is the structured copy of the site metadata.
+ * It is a build cache inside the source tree, so every lookup falls back to the
+ * note source when it is unavailable.
+ */
+async function readCalepinMetadata() {
+  try {
+    const pages = JSON.parse(await readFile('site/.calepin/website-pages.json', 'utf8'));
+    if (!Array.isArray(pages)) return new Map();
+    return new Map(pages.filter(page => page?.path).map(page => [page.path, page.meta || {}]));
+  } catch {
+    return new Map();
+  }
+}
+
+/**
+ * Optional `subject.json` manifests let a notes directory describe its own
+ * section (label, blurb, order) without touching this repository. The file sits
+ * in the directory that names the subject: `typ/<subject>/` or `models/`.
+ */
+async function readSubjectManifests(files) {
+  const manifests = {};
+  for (const file of files) {
+    if (path.posix.basename(file) !== 'subject.json') continue;
+    const key = path.posix.dirname(file);
+    if (key === '.') continue;
+    try {
+      const value = JSON.parse(await readFile(path.join('site', file), 'utf8'));
+      if (value && typeof value === 'object' && !Array.isArray(value)) manifests[key] = value;
+      else console.warn(`Ignoring ${file}: expected a JSON object`);
+    } catch (error) {
+      console.warn(`Ignoring ${file}: ${error.message}`);
+    }
+  }
+  return manifests;
+}
+
 async function walk(dir, base = '') {
   const out = [];
   for (const entry of await readdir(dir, { withFileTypes: true })) {
@@ -64,9 +229,12 @@ async function walk(dir, base = '') {
 async function prepare() {
   const input = '_calepin';
   const files = await walk(input);
+  const siteFiles = await walk('site');
   // Calepin does not publish Lean sources; discover the synchronized repository
   // files directly and link to GitHub's readable, syntax-highlighted source.
-  const leanFiles = new Set((await walk('site')).filter(file => file.startsWith('lean/') && file.endsWith('.lean')));
+  const leanFiles = new Set(siteFiles.filter(file => file.startsWith('lean/') && file.endsWith('.lean')));
+  const pageMeta = await readCalepinMetadata();
+  const subjectManifests = await readSubjectManifests(siteFiles);
   await rm('.generated', { recursive: true, force: true });
   await mkdir('.generated/public', { recursive: true });
   const notes = [];
@@ -76,7 +244,18 @@ async function prepare() {
       const note = extractNote(await readFile(path.join(input, file), 'utf8'), file);
       const pdf = file.replace(/\.html$/, '.pdf');
       if (!files.includes(pdf)) throw new Error(`Missing PDF: ${pdf}`);
-      notes.push({ ...note, leanSource: leanSourceFor(file, leanFiles) });
+      // Site metadata: prefer Calepin's structured index, fall back to the
+      // metadata call in the published note source.
+      const declared = { ...parseSiteMetadata(note.source), ...pageMeta.get(file.replace(/\.html$/, '.typ')) };
+      const date = typeof declared.date === 'string' ? declared.date : '';
+      if (!date) console.warn(`No date declared for ${file}; it will be filed last`);
+      notes.push({
+        ...note,
+        path: file.replace(/\.html$/, '.typ'),
+        date,
+        tags: normaliseTags(declared.tags),
+        leanSource: leanSourceFor(file, leanFiles),
+      });
     } else if (!file.startsWith('pagefind/') && !file.startsWith('.calepin/') && !['sitemap.xml', 'robots.txt', 'atom.xml', 'index.typ', '404.typ'].includes(file)) {
       const dest = path.join('.generated/public', file);
       await mkdir(path.dirname(dest), { recursive: true });
@@ -84,9 +263,13 @@ async function prepare() {
     }
   }
   if (!notes.length) throw new Error('No compiled notes; run scripts/build.sh first');
+  for (const key of Object.keys(subjectManifests)) {
+    if (!notes.some(note => subjectKey(note.file) === key)) console.warn(`Ignoring site/${key}/subject.json: no published note belongs to that subject`);
+  }
   // Hand-maintained public assets survive regeneration of the staging directory.
   await cp('public', '.generated/public', { recursive: true });
   await writeFile('.generated/notes.json', JSON.stringify(notes));
+  await writeFile('.generated/subjects.json', JSON.stringify(subjectManifests, null, 1));
   console.log(`Prepared ${notes.length} Typst articles for Starlight`);
 }
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve('scripts/prepare-starlight.mjs')) await prepare();
