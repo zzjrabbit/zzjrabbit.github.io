@@ -166,7 +166,7 @@ NOTES_DIR=/path/to/notes scripts/build.sh
 
 分类由**目录名**自动得出（`typ/topology/...` → 拓扑，`phys/quantum/...` → 物理轨道下的 Quantum），不需要手写。
 不需要 `slug`：页面 URL 直接沿用仓库路径（`typ/topology/continuous.html`），
-`typ/<学科>/x.typ` 与 `phys/<学科>/x.typ` 都在 `lean/` 下对应同相对路径的形式化文件。
+其中只有数学笔记有 Lean 伴生文件：`typ/<学科>/x.typ` 对应 `lean/<学科>/x.lean`。
 
 ## 轨道、栏目与首页
 
@@ -184,11 +184,13 @@ NOTES_DIR=/path/to/notes scripts/build.sh
 轨道归属按下面的顺序决定，**只需在笔记仓库里表达**：
 
 1. 该学科目录自己的 `subject.json` 里的 `track` 字段（权威；可写 `physics`/`Physics` 任一种写法）
-2. 目录位置：`phys/`（或 `physics/`）是 `typ/` 的物理对应根目录，`models/` 属于建模轨道
-3. `src/lib/notebook.mjs` 的 `SUBJECT_REGISTRY` 里该学科登记项上的可选 `track`
-4. 目录名的物理关键词（`quantum`、`mechanics`、`electrodynamics`、`relativity`、`statistical-mechanics`、`field-theory`、`optics`、`solid-state`、`particle`、`cosmology` 等整词匹配，所以 `statistical-learning` 仍是数学）
+2. 顶层目录位置：`typ/` 一律属于 Mathematics，`phys/`（别名 `physics/`）属于 Physics，`models/` 属于 Modeling & computation
+3. `src/lib/notebook.mjs` 的 `SUBJECT_REGISTRY` 里该学科登记项上的可选 `track`（只对不属于上面三个根目录的集合有意义）
+4. 目录名的物理关键词（`quantum`、`mechanics`、`electrodynamics`、`relativity`、`statistical-mechanics`、`field-theory`、`optics`、`solid-state`、`particle`、`cosmology` 等整词匹配）——同样只在顶层目录不属于 `typ/ phys/ physics/ models/` 时兜底
 5. 都没有则为 Mathematics
 
+**`typ/` 下的学科一定在 Mathematics**：目录位置先于关键词判断，所以 `typ/quantum-mechanics/` 这类目录名不会把数学笔记挪进物理轨道；
+唯一例外是该目录自己的 `subject.json` 显式写了别的 `track`。
 靠第 4 步猜出来的学科会在构建时打印一行提示，把它写进 `subject.json` 即可显式固定；
 `track` 写了本站不认识的值时同样只警告并回落到默认，不会发布没有名字的轨道。
 
@@ -197,7 +199,17 @@ NOTES_DIR=/path/to/notes scripts/build.sh
 学科名默认由目录名给出（`functional-analysis` → Functional analysis，`PDE` 这样的全大写目录保持原样，
 `nlp` 这类无元音短名自动大写）。
 `src/lib/notebook.mjs` 里的 `SUBJECT_REGISTRY` 只为已有学科提供更漂亮的名称、简介和顺序；
-没登记的学科照常发布，只是没有人工润色。
+**学科的发布不依赖登记**：没登记的学科照常发布，例如 `typ/functional-analysis/` 会以
+「Functional analysis」为名自动获得首页卡片、`/notes.html` 分组、侧边栏分组与 `/subjects/functional-analysis.html`。
+
+简介（`blurb`）是唯一没有自动来源的字段，按下面的顺序取第一个非空值：
+
+1. 笔记仓库里该学科目录的 `subject.json` 的 `blurb`（权威）
+2. `src/lib/notebook.mjs` 的 `SUBJECT_REGISTRY` 里该学科的 `blurb`（网站侧润色）
+3. 都没有：卡片不渲染简介那一行，学科页与 meta description 使用
+   `Everything filed under <学科> in this notebook.` 兜底
+
+也就是说，新学科可以什么都不登记先发布，之后再在笔记仓库补一句简介即可。
 
 希望某个学科有自定义名称、简介、排序或轨道时，在**笔记仓库**对应目录放一个 `subject.json`，不需要改动本网站仓库：
 
@@ -306,7 +318,7 @@ scripts/watch-notes.sh
 - 网页适配当前针对 `noteworthy:0.4.0` / `theoretic:0.3.1` 与 `cetz:0.5.2`；升级笔记依赖时需同步检查 `site/themes/site/notes.typ`。
 - `src/components/Sidebar.astro` 覆盖了 Starlight 的 `Sidebar` 组件，`src/components/SidebarSublist.astro` 是照 **Starlight 0.42.0** 的 `SidebarSublist.astro` 改写的（多了两处：轨道/学科标题变链接、递归时传 `depth` 以便区分层级；另外拦掉标题点击被记成折叠的问题）。轨道用的是 Starlight 原生的嵌套分组（`items` 里再放 group），badge、状态记忆与移动抽屉都沿用上游行为。升级 Starlight 时需与上游该文件对照，并依赖 `npm run check`、`browser-check.mjs` 重新验证分组展开/收起与状态记忆。
 - 轨道是**两级的目录约定**：`typ/`、`phys/`（或别名 `physics/`）下的第二层目录才是学科，再深一层只是文件组织，不会产生新学科。新增集合时，`scripts/sync-notes.sh`、`scripts/watch-notes.sh`、`.gitignore` 里的目录清单需要同步加上（当前是 `typ/ phys/ physics/ models/ lean/`）。
-- 物理笔记的 Lean 伴生文件按同相对路径映射：`phys/<学科>/x.typ` → `lean/phys/<学科>/x.lean`（`typ/<学科>/x.typ` → `lean/<学科>/x.lean`）。若笔记仓库改用别的对应关系，需要同时改 `leanSourceFor` 与其测试。
+- **只有数学笔记有 Lean 伴生文件**：`typ/<学科>/x.typ` 映射到 `lean/<学科>/x.lean`，物理与建模笔记一律不显示 Lean 链接（`leanSourceFor` 只认 `typ/` 前缀，键不存在时也只返回 `null`）。若笔记仓库改用别的对应关系，需要同时改 `leanSourceFor` 与其测试。
 - 空轨道是有意发布的：`Physics` 在还没有笔记时也会出现在首页、索引、侧边栏与 `/tracks/physics.html`，只是计数为 0 并显示占位说明。若某条轨道长期不用，应改 `TRACK_REGISTRY` 而不是让它空着。
 - 同步器识别单行的 noteworthy / CeTZ 导入，并在其后注入适配导入；改用别名调用（如 `cetz.canvas`）或多行导入时，需要扩展适配机制。发布的源码展开区与 `.typ` 下载展示同步副本，原始可独立编译源码仍以 notes 仓库为准。
 - **Calepin 很年轻**（当前 v0.0.57，单一维护者），所以版本在本仓库里是锁定的；

@@ -111,17 +111,25 @@ test('the sidebar follows the same tracks and subjects as the pages', () => {
 });
 
 test('a subject is filed into a track by where it lives, then by what it declares', () => {
-  assert.deepEqual(resolveTrack('typ/topology'), { key: 'mathematics', source: 'default' });
+  // Every collection root is placed by the repository layout alone.
+  assert.deepEqual(resolveTrack('typ/topology'), { key: 'mathematics', source: 'layout' });
   assert.deepEqual(resolveTrack('phys/mechanics'), { key: 'physics', source: 'layout' });
+  assert.deepEqual(resolveTrack('physics/optics'), { key: 'physics', source: 'layout' });
   assert.deepEqual(resolveTrack('models'), { key: 'modeling', source: 'layout' });
-  // A physics-looking folder is the last resort before the default track.
-  assert.deepEqual(resolveTrack('typ/quantum-mechanics'), { key: 'physics', source: 'inferred' });
-  assert.deepEqual(resolveTrack('typ/solid-state-physics'), { key: 'physics', source: 'inferred' });
-  assert.deepEqual(resolveTrack('typ/statistical-learning'), { key: 'mathematics', source: 'default' });
+  // Everything under typ/ is mathematics, whatever the folder happens to be
+  // called: only that directory's own subject.json can move it out.
+  assert.deepEqual(resolveTrack('typ/quantum-mechanics'), { key: 'mathematics', source: 'layout' });
+  assert.deepEqual(resolveTrack('typ/solid-state-physics'), { key: 'mathematics', source: 'layout' });
+  assert.deepEqual(resolveTrack('typ/statistical-learning'), { key: 'mathematics', source: 'layout' });
+  assert.deepEqual(resolveTrack('typ/inequalities'), { key: 'mathematics', source: 'layout' });
   // A declaration in the notes repository always wins, however it is written.
-  assert.deepEqual(resolveTrack('typ/quantum-mechanics', { track: 'Mathematics' }), { key: 'mathematics', source: 'manifest' });
-  assert.deepEqual(resolveTrack('typ/foo', {}, { track: 'physics' }), { key: 'physics', source: 'registry' });
-  assert.deepEqual(resolveTrack('typ/foo', { track: 'chemistry' }), { key: 'mathematics', source: 'default' },
+  assert.deepEqual(resolveTrack('typ/quantum-mechanics', { track: 'physics' }), { key: 'physics', source: 'manifest' });
+  assert.deepEqual(resolveTrack('phys/mechanics', { track: 'Mathematics' }), { key: 'mathematics', source: 'manifest' });
+  // Outside every layout root, the registry entry and then the folder name decide.
+  assert.deepEqual(resolveTrack('essays', {}, { track: 'physics' }), { key: 'physics', source: 'registry' });
+  assert.deepEqual(resolveTrack('mechanics'), { key: 'physics', source: 'inferred' });
+  assert.deepEqual(resolveTrack('essays'), { key: 'mathematics', source: 'default' });
+  assert.deepEqual(resolveTrack('essays', { track: 'chemistry' }), { key: 'mathematics', source: 'default' },
     'an unknown track name never becomes an unlabelled line');
   assert.equal(normaliseTrackKey('Modeling & computation'), 'modeling');
   assert.equal(normaliseTrackKey(''), null);

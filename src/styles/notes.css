@@ -16,6 +16,12 @@
   --sl-font: 'Inter', 'Noto Sans CJK SC', 'PingFang SC', system-ui, sans-serif;
   --notebook-serif: 'Charter', 'Noto Serif CJK SC', 'Songti SC', Georgia, serif;
   --sl-content-width: 52rem;
+  /* The sidebar carries three levels — track, subject, note — so every note
+     label is indented twice before it starts, and Starlight's default 18.75rem
+     left only 191px of text: five of the seven note titles wrapped, two of them
+     onto three lines. This width is applied to the left column alone; see the
+     sidebar rules below for why it is not --sl-sidebar-width. */
+  --notebook-sidebar-width: 22.5rem;
   --sl-color-hairline: var(--sl-color-gray-5);
   --notebook-card: #26211d;
   --notebook-shadow: 0 2px 4px #00000010, 0 12px 32px #00000016;
@@ -56,6 +62,17 @@ a, button, select, summary { -webkit-tap-highlight-color: transparent; }
 }
 /* Keep Starlight's native details, persistence and mobile drawer behavior.
    A quiet index: small subject labels, readable titles, one current-page cue. */
+/* Widen the left sidebar only. Starlight sizes the left column, the right-hand
+   table of contents and the content split from the single --sl-sidebar-width
+   token, so raising that token also widens the table of contents and takes
+   roughly twice the article width it gives the sidebar (measured 788px → 672px
+   of article at 1440px; widening the left column alone gives 788px → 732px).
+   --sl-content-inline-start carries the header offset, the main frame padding
+   and the mobile table of contents, so they all follow the wider column. */
+@media (min-width: 50em) {
+  #starlight__sidebar.sidebar-pane { width: var(--notebook-sidebar-width); }
+  html[data-has-sidebar] { --sl-content-inline-start: var(--notebook-sidebar-width); }
+}
 #starlight__sidebar .top-level { padding: .25rem .15rem 1rem; }
 #starlight__sidebar .top-level > li + li { margin-top: 1.25rem; }
 #starlight__sidebar .top-level > li:first-child { padding-bottom: 1rem; border-bottom: 1px solid var(--sl-color-hairline); }

@@ -26,8 +26,8 @@ const homeUrl = new URL('/', Astro.site).href;
   <div class="notes-home not-content">
     <div class="notes-intro">
       <div class="notes-eyebrow"><span class="edition-mark" aria-hidden="true">∴</span> A PERSONAL NOTEBOOK IN MATHEMATICS AND PHYSICS</div>
-      <p class="notes-lead">Begin with intuition.<br />Arrive at <span>proof.</span></p>
-      <p class="notes-description">A notebook on structure, space, and change — and on the physical world those ideas describe. Mathematics and physics are developed side by side here, from mathematical exposition and physical derivation to rigorous formal proof with Lean 4.</p>
+      <p class="notes-lead">Begin with intuition.<br />Arrive at <span>something checkable.</span></p>
+      <p class="notes-description">A notebook on structure, space, and change — and on the physical world those ideas describe. Mathematics, physics and computational modeling are developed side by side: exposition and derivation written in Typst, proofs checked with Lean 4, and small models you can rerun yourself.</p>
       <div class="note-tools">
         {firstNote && <a class="primary-link" href={'/' + firstNote.file}>Start reading <span aria-hidden="true">↗</span></a>}
         <a href={ALL_NOTES_PATH}>All {total} {total === 1 ? 'note' : 'notes'} <span aria-hidden="true">↗</span></a>
@@ -37,7 +37,7 @@ const homeUrl = new URL('/', Astro.site).href;
         <span><strong>{number(total)}</strong> {total === 1 ? 'note' : 'notes'}</span>
         <span><strong>{number(subjects.length)}</strong> {subjects.length === 1 ? 'subject' : 'subjects'}</span>
         <span><strong>{number(tracks.length)}</strong> {tracks.length === 1 ? 'track' : 'tracks'}</span>
-        <span class="notebook-format">Native math <span aria-hidden="true">/</span> PDF editions</span>
+        <span class="notebook-format">Typst exposition <span aria-hidden="true">/</span> Lean 4 proofs <span aria-hidden="true">/</span> runnable models</span>
         {latest && <span class="notebook-updated">Last note {formatDate(latest)}</span>}
       </div>
     </div>
@@ -85,6 +85,6 @@ const homeUrl = new URL('/', Astro.site).href;
       })}</ol>
     </section>}
     {!total && <p class="notes-empty">The notebook is taking shape. New notes are on the way.</p>}
-    <div class="notebook-colophon"><span aria-hidden="true">∎</span><p>One intuition, one deduction at a time.<br /><span>Gathering what I learn, leaving a trail for the next idea.</span></p></div>
+    <div class="notebook-colophon"><span aria-hidden="true">∎</span><p>One intuition, one derivation, one verification at a time.<br /><span>Gathering what I learn, leaving a trail for the next idea.</span></p></div>
   </div>
 </StarlightPage>

@@ -29,17 +29,21 @@ export const DEFAULT_TRACK = 'mathematics';
 
 /**
  * Which track a directory belongs to, decided by the notes repository layout
- * alone. `phys/…` is the physics twin of `typ/…`, and the top-level `models/`
- * collection is the computational modeling line.
+ * alone. Every collection root is placed explicitly: `typ/…` is mathematics,
+ * `phys/…` (or `physics/…`) is its physics twin, and the top-level `models/`
+ * collection is the computational modeling line. Because `typ/` is listed here,
+ * nothing but that directory's own `subject.json` can move a mathematics
+ * subject out of the mathematics track.
  */
-const TRACK_ROOTS = { phys: 'physics', physics: 'physics', models: 'modeling' };
+const TRACK_ROOTS = { typ: 'mathematics', phys: 'physics', physics: 'physics', models: 'modeling' };
 
 /**
- * Folder names that read as physics even when they sit somewhere unexpected
- * (for example `typ/quantum-mechanics/`). This is the last resort before the
- * default track: a `track` in `subject.json` or a layout root above always
- * wins, and `prepare-starlight.mjs` prints the subjects that needed a guess.
- * Matched on whole words only, so `statistical-learning` stays mathematics.
+ * Folder names that read as physics. This only reaches collections that sit
+ * outside every root above — a top-level `mechanics/`, say — because a layout
+ * root is decided before any name is inspected, and `typ/` is a layout root.
+ * It is the last resort before the default track, and `prepare-starlight.mjs`
+ * prints the subjects that needed a guess. Matched on whole words only, so
+ * `statistical-learning` stays mathematics.
  */
 const PHYSICS_TERMS = [
   'physics', 'phys', 'mechanics', 'quantum', 'electrodynamics', 'electromagnetism',
@@ -53,7 +57,9 @@ const PHYSICS_TERMS = [
  * Curated presentation for the subjects that exist today: display label, one
  * sentence of context and the order they are shown in. Directories that are not
  * listed here are still published automatically, with a label derived from the
- * directory name, so this table is polish rather than a gate.
+ * directory name, so this table is polish rather than a gate — but the one-line
+ * blurb has no automatic source, so an unlisted subject simply shows none
+ * (see `blurb` in `buildLibrary`).
  *
  * A notes directory can also describe itself in `subject.json`
  * (for example `typ/functional-analysis/subject.json`), which wins over this
@@ -65,6 +71,7 @@ export const SUBJECT_REGISTRY = [
   { key: 'typ/topology', label: 'Topology', blurb: 'Open sets, continuity and the invariants that survive deformation.' },
   { key: 'typ/geometry', label: 'Geometry', blurb: 'Differential forms, curvature and the calculus of smooth spaces.' },
   { key: 'typ/lie', label: 'Lie theory', blurb: 'Groups, their linearizations, and the symmetry behind functional equations.' },
+  { key: 'typ/inequalities', label: 'Inequalities', blurb: 'Comparisons and bounds between quantities, and the estimates that make each one rigorous.' },
   { key: 'models', label: 'Mathematical modeling', blurb: 'Small optimisation and simulation models, with their assumptions stated up front.' },
 ];
 
@@ -144,10 +151,13 @@ function inferredTrack(key) {
  *
  *   1. `track` in that directory's own `subject.json` — authoritative, written
  *      in the notes repository, so this website maintains no classification.
- *   2. The repository layout: `phys/…` is the physics twin of `typ/…`, and the
- *      `models/` collection is the modeling line.
- *   3. An optional `track` on the subject's entry in `SUBJECT_REGISTRY`.
- *   4. A physics-looking folder name (see `PHYSICS_TERMS`).
+ *      This is the only way a `typ/` subject can leave the mathematics track.
+ *   2. The repository layout: `typ/…` is mathematics, `phys/…` is physics, and
+ *      the `models/` collection is the modeling line.
+ *   3. An optional `track` on the subject's entry in `SUBJECT_REGISTRY`, which
+ *      can only matter for a collection outside every layout root.
+ *   4. A physics-looking folder name (see `PHYSICS_TERMS`), again only outside
+ *      those roots.
  *   5. Otherwise `DEFAULT_TRACK`.
  *
  * The `source` is kept so `scripts/prepare-starlight.mjs` can point at the

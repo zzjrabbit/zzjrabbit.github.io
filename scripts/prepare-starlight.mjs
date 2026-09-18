@@ -44,13 +44,12 @@ export function extractNote(html, file) {
 
 // Match the full subject-relative path, never just the basename. A companion
 // file is a source reference, not a claim that every result is formalized.
-// `phys/` mirrors into `lean/` exactly as `typ/` does, so a physics note keeps
-// the same relative path in both repositories' collections.
+// Only mathematics notes have Lean companions: `typ/<subject>/x.typ` is
+// formalized in `lean/<subject>/x.lean`. Physics and modeling notes link no
+// Lean source at all, so no other collection is mirrored into `lean/`.
 export function leanSourceFor(file, leanFiles) {
-  if (!file.endsWith('.html')) return null;
-  const mirrored = /^(?:typ|phys)\//.test(file) ? file.replace(/^(?:typ|phys)\//, 'lean/') : null;
-  if (!mirrored) return null;
-  const lean = mirrored.replace(/\.html$/, '.lean');
+  if (!file.startsWith('typ/') || !file.endsWith('.html')) return null;
+  const lean = file.replace(/^typ\//, 'lean/').replace(/\.html$/, '.lean');
   return leanFiles.has(lean)
     ? `https://github.com/zzjrabbit/notes/blob/main/${lean.split('/').map(encodeURIComponent).join('/')}`
     : null;
