@@ -435,3 +435,109 @@ h1 { font-size: var(--notebook-type-title); font-weight: 500; line-height: 1.25;
   .subject-card { transition: none; }
   .subject-card:hover, .subject-card:focus-within { transform: none; }
 }
+
+/* ---------------------------------------------------------------------------
+   Mathematics, physics and modeling as parallel lines.
+   A track now holds the subject groups, so the track header carries the
+   top-level division while the subject groups keep the rhythm they had when
+   they were top level. The track label links to its own landing page through
+   `.track-link` and never through `.group-link`, so "every subject page is one
+   click away from the sidebar" still means one thing only.
+   --------------------------------------------------------------------------- */
+#starlight__sidebar .sidebar-track > summary {
+  min-height: 2.6rem;
+  padding: .5rem .65rem;
+  border-top: 1px solid var(--sl-color-hairline);
+}
+#starlight__sidebar .sidebar-track > summary .large {
+  font-size: var(--notebook-type-caption);
+  font-weight: 650;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--sl-color-gray-1);
+}
+#starlight__sidebar .sidebar-track .track-link {
+  display: flex; flex: 1 1 auto; align-items: center; gap: .5rem;
+  min-width: 0; min-height: 2.25rem; padding: 0; border-radius: .35rem;
+  color: inherit; text-decoration: none;
+}
+#starlight__sidebar .sidebar-track .track-arrow { flex-shrink: 0; color: var(--sl-color-gray-3); font-size: .8rem; }
+#starlight__sidebar .sidebar-track .track-link:hover .large,
+#starlight__sidebar .sidebar-track .track-link:focus-visible .large { color: var(--sl-color-text-accent); }
+#starlight__sidebar .sidebar-track .track-link:hover .track-arrow { color: var(--sl-color-text-accent); }
+#starlight__sidebar .sidebar-track .track-link[aria-current='page'] {
+  background: color-mix(in srgb, var(--sl-color-accent-low) 65%, var(--sl-color-bg-sidebar));
+  box-shadow: inset 2px 0 var(--sl-color-text-accent);
+}
+#starlight__sidebar .sidebar-track .track-link[aria-current='page'] .large { color: var(--sl-color-text-accent); }
+#starlight__sidebar .track-count { font-size: .6875rem; font-variant-numeric: tabular-nums; padding: .1rem .4rem; }
+/* The track supplies the first level of indent, so its subjects sit closer in
+   than the generic nested rule would place them and the notes underneath keep
+   the width they had before the tracks existed. */
+#starlight__sidebar .top-level > li > details > ul > li {
+  margin-inline-start: .3rem;
+  padding-inline-start: .5rem;
+}
+#starlight__sidebar .top-level > li > details > ul > li + li { padding-top: .45rem; }
+/* A track still gathering its first notes says so instead of disappearing. */
+#starlight__sidebar .top-level a.track-empty { color: var(--sl-color-gray-3); font-style: italic; }
+#starlight__sidebar .top-level a.track-empty:hover { color: var(--sl-color-white); }
+@media (max-width: 49.999rem) {
+  #starlight__sidebar .sidebar-track .track-link { min-height: 2.75rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #starlight__sidebar .sidebar-track .track-link { transition: none; }
+}
+
+/* Tracks on the cover: one panel per line of the notebook, then the same
+   subject cards grouped under the track they belong to. */
+.track-band { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: 1rem; }
+.track-panel {
+  position: relative; display: flex; flex-direction: column; gap: .3rem; min-width: 0;
+  padding: 1.35rem 1.5rem; border: 1px solid var(--sl-color-hairline);
+  border-top: 2px solid var(--sl-color-text-accent); border-radius: var(--notebook-radius);
+  background: var(--notebook-card); box-shadow: var(--notebook-shadow);
+  text-decoration: none; transition: border-color .2s, transform .2s, box-shadow .2s;
+}
+.track-panel:hover, .track-panel:focus-within { border-color: var(--sl-color-text-accent); transform: translateY(-2px); }
+.track-panel:focus-visible { outline: 2px solid var(--sl-color-text-accent); outline-offset: 3px; }
+.track-figures { color: var(--sl-color-gray-2); font-size: var(--notebook-type-caption); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
+.track-panel h3 { margin: 0; color: var(--sl-color-white); font: 600 var(--notebook-type-card)/1.4 var(--notebook-serif); letter-spacing: -.01em; overflow-wrap: anywhere; }
+.track-panel p { margin: .35rem 0 0; color: var(--sl-color-gray-2); font-size: var(--notebook-type-small); line-height: 1.8; text-wrap: pretty; }
+.track-latest { margin: .9rem 0 0; color: var(--sl-color-gray-2); font-size: var(--notebook-type-caption); line-height: 1.7; overflow-wrap: anywhere; }
+.track-more { margin-top: auto; padding-top: 1.1rem; color: var(--sl-color-text-accent); font-size: var(--notebook-type-caption); font-weight: 600; }
+.track-group-heading {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem .8rem;
+  margin: 2.75rem 0 1.1rem; padding-bottom: .5rem; border-bottom: 1px solid var(--sl-color-hairline);
+}
+.track-group-heading h3 { margin: 0; color: var(--sl-color-white); font: 650 var(--notebook-type-section)/1.35 var(--notebook-serif); letter-spacing: .01em; }
+.track-group-heading .track-group-count { color: var(--sl-color-gray-2); font-size: var(--notebook-type-caption); }
+.track-group-heading a { margin-left: auto; color: var(--sl-color-text-accent); font-size: var(--notebook-type-caption); text-decoration: none; white-space: nowrap; }
+.track-group-heading a:hover { text-decoration: underline; text-underline-offset: .2em; }
+.recent-track { color: var(--sl-color-gray-3); font-size: var(--notebook-type-caption); letter-spacing: .06em; }
+
+/* The complete index: a track heading over its subject sections. */
+.track-section { margin-block: 3.5rem 0; }
+.section-heading h3 { margin: 0; font-size: 1.15rem; font-weight: 600; line-height: 1.45; letter-spacing: -.01em; scroll-margin-top: 7rem; overflow-wrap: anywhere; }
+.track-heading { align-items: baseline; margin-bottom: .25rem; padding-bottom: .5rem; border-bottom: 1px solid var(--sl-color-hairline); }
+.track-heading h2 { letter-spacing: .01em; }
+.track-heading .track-heading-blurb { flex-basis: 100%; margin: 0; color: var(--sl-color-gray-2); font-size: var(--notebook-type-small); line-height: 1.8; text-wrap: pretty; }
+.notes-index .track-section .notes-section { margin-block: 2rem; }
+.index-track { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem 1.1rem; }
+.index-track + .index-track { margin-top: .6rem; }
+.index-track-label { flex-basis: 100%; color: var(--sl-color-gray-3); font-size: .75rem; letter-spacing: .1em; text-transform: uppercase; }
+
+/* A track's own page: its subjects as cards, its newest notes underneath. */
+.track-page { color: var(--sl-color-text); }
+.track-page a { color: var(--sl-color-text-accent); }
+.track-intro { padding-bottom: 2rem; border-bottom: 1px solid var(--sl-color-hairline); }
+.track-lead { max-width: 43rem; margin: 1.35rem 0 0; color: var(--sl-color-white); font: 500 clamp(1.5rem, 1.15rem + 1.25vw, 2.25rem)/1.45 var(--notebook-serif); letter-spacing: -.02em; text-wrap: pretty; }
+.track-intro .notes-meta { margin-top: 1.1rem; }
+.track-page .subject-grid { margin-top: 2.5rem; }
+.track-neighbours { display: flex; flex-wrap: wrap; gap: .75rem 2.5rem; margin-block: 3rem 0; }
+.track-neighbours-group { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem 1.1rem; }
+.track-empty-note {
+  margin-top: 2.5rem; padding: 1.35rem 1.5rem; border: 1px dashed var(--sl-color-hairline);
+  border-radius: var(--notebook-radius); color: var(--sl-color-gray-2);
+  font-size: var(--notebook-type-body); line-height: 1.8; text-wrap: pretty;
+}

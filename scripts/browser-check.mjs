@@ -8,6 +8,7 @@ import { buildLibrary } from '../src/lib/notebook.mjs';
 const notes = JSON.parse(await readFile('.generated/notes.json', 'utf8'));
 const library = buildLibrary(notes, JSON.parse(await readFile('.generated/subjects.json', 'utf8')));
 const subjectFiles = library.subjects.map(subject => subject.href.slice(1));
+const trackFiles = library.tracks.map(track => track.href.slice(1));
 // CI installs Playwright's pinned Chromium; local Nix users can use the system browser.
 const executablePath = process.env.CHROMIUM_BIN || (process.env.CI ? undefined : execFileSync('sh', ['-c', 'command -v chromium || command -v chromium-browser'], { encoding: 'utf8' }).trim());
 const browser = await chromium.launch({ executablePath, headless: true });
@@ -31,7 +32,7 @@ try {
   page.on('pageerror', error => errors.push(error.message));
   for (const width of [320, 390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
-    for (const file of ['index.html', 'notes.html', subjectFiles[0], 'about.html', 'typ/lie/cover_linear.html', 'typ/real/func_eq_fdts.html']) {
+    for (const file of ['index.html', 'notes.html', subjectFiles[0], trackFiles[0], 'about.html', 'typ/lie/cover_linear.html', 'typ/real/func_eq_fdts.html']) {
       await page.goto(`https://notes.test/${file}`);
       await page.evaluate(() => document.fonts.ready);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${width}px overflow: ${file}`);
@@ -66,9 +67,11 @@ try {
   await noJS.close();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('https://notes.test/');
-  // The home page stays a cover: one card per subject, never one per note.
+  // The home page stays a cover: one panel per track, one card per subject,
+  // never one card per note.
   const subjectCards = page.locator('.subject-card');
   assert.equal(await subjectCards.count(), library.subjects.length, 'home shows one card per subject');
+  assert.equal(await page.locator('.track-panel').count(), library.tracks.length, 'home shows one panel per track');
   assert.equal(await page.locator('.note-card').count(), 0, 'home does not list every note');
   assert.equal(await page.locator('.recent-item').count(), library.recent.length, 'home: bounded recent list');
   const cardTargets = await subjectCards.evaluateAll(cards => cards.map(card => card.getAttribute('href')));
@@ -77,6 +80,15 @@ try {
     assert.equal(await page.locator('h1').count(), 1, `subject page exists: ${target}`);
     assert.ok(await page.locator('.note-card').count(), `subject page lists notes: ${target}`);
     assert.equal(await page.locator('.subject-intro a[href="/notes.html"]').count(), 1, `subject page links back to the index: ${target}`);
+    assert.equal(await page.locator('.subject-intro a[href^="/tracks/"]').count(), 1, `subject page states its track: ${target}`);
+  }
+  // Mathematics and physics are parallel lines a reader can walk: every track
+  // has a landing page listing its subjects, empty ones included.
+  for (const track of library.tracks) {
+    await page.goto(`https://notes.test${track.href}`);
+    assert.equal(await page.locator('h1').count(), 1, `track page exists: ${track.href}`);
+    assert.equal(await page.locator('.subject-card').count(), track.subjectCount, `track page lists its subjects: ${track.href}`);
+    assert.equal(await page.locator('.track-empty-note').count(), track.subjectCount ? 0 : 1, `track page states an empty track: ${track.href}`);
   }
   // The complete index stays reachable and lists every note exactly once.
   await page.goto('https://notes.test/notes.html');
@@ -96,6 +108,17 @@ try {
   // link to its subject page, and the caret beside it is the group toggle.
   const groupLinks = await page.locator('#starlight__sidebar a.group-link').evaluateAll(links => links.map(link => link.getAttribute('href')));
   assert.deepEqual(groupLinks.slice().sort(), library.subjects.map(subject => subject.href).sort(), 'sidebar links every subject page');
+  // The tracks are the layer above: one group each, in order, opened by their
+  // own label, and still present while they have no notes to show.
+  const trackLinks = await page.locator('#starlight__sidebar a.track-link').evaluateAll(links => links.map(link => link.getAttribute('href')));
+  assert.deepEqual(trackLinks, library.tracks.map(track => track.href), 'sidebar lists every track as its own group');
+  assert.equal(await page.locator('#starlight__sidebar .track-empty').count(), library.tracks.filter(track => !track.count).length, 'an empty track keeps its place in the sidebar');
+  const tracksWithNotes = library.tracks.filter(track => track.count);
+  await page.locator(`#starlight__sidebar a.track-link[href="${tracksWithNotes[0].href}"]`).click();
+  assert.equal(new URL(page.url()).pathname, tracksWithNotes[0].href, 'clicking a track label opens that track');
+  assert.equal(await page.locator('h1').count(), 1, 'track page opened from the sidebar');
+  await page.goto('https://notes.test/');
+  await page.locator('button[popovertarget="starlight__sidebar"]').click();
   await page.locator(`#starlight__sidebar a.group-link[href="${groupLinks[0]}"]`).click();
   assert.equal(new URL(page.url()).pathname, groupLinks[0], 'clicking a subject group label opens that subject');
   assert.equal(await page.locator('h1').count(), 1, 'subject page opened from the sidebar');
@@ -108,15 +131,18 @@ try {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('https://notes.test/');
   // The sidebar state persister must not mistake a label click for a toggle:
-  // after visiting a subject, coming back keeps its group open.
-  const firstGroup = page.locator('#starlight__sidebar details').filter({ has: page.locator('a.group-link') }).first();
+  // after visiting a subject, coming back keeps its group open. Subject groups
+  // are the `<details>` whose own summary holds the group link — a track group
+  // contains subject links as descendants but never as its own label.
+  const subjectGroup = '#starlight__sidebar details:has(> summary a.group-link)';
+  const firstGroup = page.locator(subjectGroup).first();
   const groupToggle = firstGroup.locator('summary .group-toggle');
   const subjectHref = await firstGroup.locator('a.group-link').getAttribute('href');
   if (!await firstGroup.evaluate(el => el.open)) await groupToggle.click();
   await firstGroup.locator('a.group-link').click();
   assert.equal(new URL(page.url()).pathname, subjectHref, 'sidebar label opens its subject page');
   await page.goto('https://notes.test/');
-  assert.equal(await page.locator('#starlight__sidebar details').filter({ has: page.locator('a.group-link') }).first().evaluate(el => el.open), true, 'a label click does not collapse its group');
+  assert.equal(await page.locator(subjectGroup).first().evaluate(el => el.open), true, 'a label click does not collapse its group');
   // The caret keeps collapsing and expanding the group it sits in.
   assert.equal(await groupToggle.isVisible(), true, 'the group toggle is reachable');
   await groupToggle.click();
@@ -140,7 +166,7 @@ try {
   await page.locator('.pagefind-ui__result-link').first().waitFor();
   assert.ok((await page.locator('.pagefind-ui__result-link').allTextContents()).some(text => text.includes('Continuity')));
   assert.deepEqual(errors, []);
-  console.log('OK: 5 viewport widths, home cover, complete index, subject pages, long notes, mobile menu/Escape, themes, live search, no page errors');
+  console.log('OK: 5 viewport widths, home tracks/subject cover, complete index, track and subject pages, long notes, mobile menu/Escape, themes, live search, no page errors');
   await context.tracing.stop();
 } catch (error) {
   // Preserve the failing page, including failures before the named screenshots.

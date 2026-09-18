@@ -8,7 +8,7 @@ usage() {
     '  --date YYYY-MM-DD  日期（默认今天）' \
     '  --tags tag1,tag2   逗号分隔标签（默认首级分类）' \
     '  --summary 文本    摘要（默认空字符串）' \
-    '路径相对 NOTES_DIR/typ；也接受 typ/ 前缀。NOTES_DIR 默认 ../tyle。' \
+    '路径相对 NOTES_DIR/typ；物理笔记用 phys/（或 physics/）前缀。NOTES_DIR 默认 ../tyle。' \
     '路径段仅允许字母、数字、下划线和连字符；拒绝符号链接及覆盖。'
 }
 die() { printf '错误：%s\n' "$*" >&2; exit 1; }
@@ -39,7 +39,12 @@ done
 # GNU date 由开发环境的 coreutils 提供；同时拒绝不存在的日历日期。
 valid_date=$(date -d "$note_date" +%F 2>/dev/null) || die '无效的日期'
 [[ $valid_date == "$note_date" ]] || die '无效的日期'
-path=${path#typ/}
+# 顶层集合：typ/ 是数学，phys/（别名 physics/）是物理，与网站的双轨结构一致。
+# 省略前缀时按数学笔记处理，沿用原来的行为。
+collection=typ
+case $path in
+  typ/*|phys/*|physics/*) collection=${path%%/*}; path=${path#*/} ;;
+esac
 path=${path%.typ}
 [[ $path =~ ^[a-zA-Z0-9_-]+(/[a-zA-Z0-9_-]+)*$ ]] || die '不安全的笔记路径'
 [[ $path != shared ]] || die 'shared.typ 是共用模板，不能作为笔记'
@@ -51,10 +56,17 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 src=${NOTES_DIR:-$root/../tyle}
 [[ -d $src ]] || die "笔记仓库不存在：$src（用 NOTES_DIR 指定）"
 src=$(cd "$src" && pwd -P)
-[[ -d $src/typ && ! -L $src/typ ]] || die '源仓库 typ/ 必须是实际目录，不能是符号链接'
+[[ ! -L $src/$collection ]] || die "$collection/ 不能是符号链接"
+if [[ ! -d $src/$collection ]]; then
+  # typ/ 必须已存在（共用模板在里面）；物理集合可以在写第一篇物理笔记时建立。
+  if [[ $collection == typ ]]; then die "源仓库缺少 $collection/"; fi
+  mkdir -- "$src/$collection" || die "无法创建目录：$src/$collection"
+fi
 [[ -f $src/typ/shared.typ ]] || die '源仓库缺少 typ/shared.typ'
-parent=$src/typ
+parent=$src/$collection
+# 共用模板始终在 typ/ 下：数学笔记就在同一集合里，物理笔记要从 phys/ 回到 typ/。
 import=shared.typ
+[[ $collection == typ ]] || import=../typ/shared.typ
 IFS=/ read -r -a parts <<< "$path"
 for ((i=0; i<${#parts[@]}-1; i++)); do
   parent+=/${parts[i]}

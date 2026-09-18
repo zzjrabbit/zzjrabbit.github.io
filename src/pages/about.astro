@@ -10,32 +10,35 @@ const headings = [
   { depth: 2, slug: 'what-you-will-find', text: "What you'll find" },
   { depth: 2, slug: 'open-notebook', text: 'An open notebook' },
 ];
-// Read the notebook's own subjects instead of naming them here, so this page
-// stays true when a new subject appears in the notes repository.
+// Read the notebook's own tracks and subjects instead of naming them here, so
+// this page stays true when a new track or subject appears in the notes
+// repository.
 const library = buildLibrary(notes, subjectManifests);
 const subjects = new Intl.ListFormat('en', { style: 'long', type: 'conjunction' })
   .format(library.subjects.map(subject => subject.label));
+const tracks = new Intl.ListFormat('en', { style: 'long', type: 'conjunction' })
+  .format(library.tracks.map(track => track.label));
 ---
 
 <StarlightPage
   headings={headings}
   frontmatter={{
     title: 'About',
-    description: "About zzj's personal notebook for mathematical ideas, Typst exposition, and Lean 4 formal proofs.",
+    description: "About zzj's personal notebook for mathematics and physics: Typst exposition, Lean 4 formal proofs, and computational models.",
     editUrl: false,
   }}
 >
   <article class="about-page">
     <header class="about-intro">
       <p class="about-kicker"><span aria-hidden="true">∴</span> ABOUT THIS NOTEBOOK</p>
-      <p class="about-lead">I'm zzj. This is where I turn mathematical intuition into arguments I can return to, question, and refine.</p>
+      <p class="about-lead">I'm zzj. This is where I turn intuition — mathematical and physical — into arguments I can return to, question, and refine.</p>
     </header>
 
     <section aria-labelledby="why-this-notebook-exists">
       <p class="about-section-number" aria-hidden="true">01</p>
       <div>
         <h2 id="why-this-notebook-exists">Why this notebook exists</h2>
-        <p>Mathematics becomes clearer when an idea is written precisely enough to be checked. I use this site to record that process: beginning with a picture or question, following the definitions, and keeping the reasoning that connects them.</p>
+        <p>Mathematics and physics become clearer when an idea is written precisely enough to be checked. I use this site to record that process in both directions: beginning with a picture, a question or a physical situation, following the definitions, and keeping the reasoning that connects them.</p>
         <p>These pages are written first as notes to my future self. Publishing them makes the work easier to revisit and leaves a useful trail for anyone studying the same ideas.</p>
       </div>
     </section>
@@ -44,7 +47,7 @@ const subjects = new Intl.ListFormat('en', { style: 'long', type: 'conjunction' 
       <p class="about-section-number" aria-hidden="true">02</p>
       <div>
         <h2 id="how-i-work">How I work</h2>
-        <p>I write the exposition and mathematics in Typst. When an argument benefits from machine-checked certainty, I use Lean 4 to make every assumption and inference explicit.</p>
+        <p>I write the exposition, the mathematics and the physical derivations in Typst. When an argument benefits from machine-checked certainty, I use Lean 4 to make every assumption and inference explicit.</p>
         <p>Formalization is not a replacement for intuition, and intuition is not a replacement for proof. The most useful notes let the two correct each other.</p>
       </div>
     </section>
@@ -58,8 +61,8 @@ const subjects = new Intl.ListFormat('en', { style: 'long', type: 'conjunction' 
       <p class="about-section-number" aria-hidden="true">03</p>
       <div>
         <h2 id="what-you-will-find">What you'll find</h2>
-        <p>The notebook currently gathers {library.total} {library.total === 1 ? 'note' : 'notes'} under {library.subjects.length} {library.subjects.length === 1 ? 'subject' : 'subjects'}: {subjects}. Some entries develop a concept from definitions to proofs; others connect mathematical exposition with formal verification or computation.</p>
-        <p>This is a working notebook rather than a finished textbook. Notes may grow as my understanding changes, while the derivations, references, and source remain visible.</p>
+        <p>The notebook currently gathers {library.total} {library.total === 1 ? 'note' : 'notes'} under {library.subjects.length} {library.subjects.length === 1 ? 'subject' : 'subjects'} in {library.tracks.length} parallel {library.tracks.length === 1 ? 'track' : 'tracks'} — {tracks}. The subjects are {subjects}. Some entries develop a concept from definitions to proofs; others derive a physical result, connect exposition with formal verification, or work through a small computational model.</p>
+        <p>Mathematics and physics are kept side by side rather than mixed together, so each line can be read on its own: every subject belongs to exactly one track, and the sidebar, the index and the track pages all say which. This is a working notebook rather than a finished textbook. Notes may grow as my understanding changes, while the derivations, references, and source remain visible.</p>
       </div>
     </section>
 

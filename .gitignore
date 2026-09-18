@@ -13,6 +13,8 @@
 
 # 从 notes 仓库同步进来的内容（由 scripts/sync-notes.sh 生成，不入库）
 /site/typ/
+/site/phys/
+/site/physics/
 /site/models/
 /site/lean/
 

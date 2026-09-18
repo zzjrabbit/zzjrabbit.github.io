@@ -44,7 +44,7 @@ sub hash_file {
     $digest->add($path, "\0", $file, "\0");
 }
 my %ignored = map { $_ => 1 } qw(.git .lake .calepin .cache .tools .astro .generated _calepin _site target node_modules);
-for my $tree ("$notes/typ", "$notes/models", "$notes/lean", $site,
+for my $tree ("$notes/typ", "$notes/phys", "$notes/physics", "$notes/models", "$notes/lean", $site,
               "$root/src", "$root/scripts", "$root/public") {
     $digest->add($tree, "\0", (-d $tree ? 'present' : 'missing'), "\0");
     next unless -d $tree;
@@ -55,7 +55,7 @@ for my $tree ("$notes/typ", "$notes/models", "$notes/lean", $site,
         (my $rel = $path) =~ s/^\Q$tree\E\///;
         my ($base) = $path =~ m{([^/]+)$};
         if (-d $path) {
-            if ($ignored{$base} || ($tree eq $site && $rel =~ m{^(typ|models|lean)$})) {
+            if ($ignored{$base} || ($tree eq $site && $rel =~ m{^(typ|phys|physics|models|lean)$})) {
                 $File::Find::prune = 1;
             }
             return;

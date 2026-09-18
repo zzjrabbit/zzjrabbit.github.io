@@ -1,0 +1,13 @@
+---
+import { formatDate } from '../lib/notebook.mjs';
+// One card per subject: the cover and a track page both describe subjects rather
+// than notes, so the card is shared instead of written twice.
+const { subject } = Astro.props;
+---
+<a class="subject-card" href={subject.href}>
+  <span class="subject-count">{subject.count} {subject.count === 1 ? 'note' : 'notes'}</span>
+  <h3>{subject.label}</h3>
+  {subject.blurb && <p class="subject-blurb">{subject.blurb}</p>}
+  {subject.latest && <p class="subject-latest"><span class="subject-latest-label">Latest</span> {subject.latest.title}{subject.updated && <time datetime={subject.updated}> · {formatDate(subject.updated)}</time>}</p>}
+  <span class="subject-more" aria-hidden="true">Browse subject →</span>
+</a>

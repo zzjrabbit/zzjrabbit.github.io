@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ALL_NOTES_PATH, autoSubjectLabel, buildLibrary, compareNotes,
-  formatDate, sidebar, slugify, subjectHref, subjectKey, subjectOf,
+  formatDate, normaliseTrackKey, resolveTrack, sidebar, slugify, subjectHref,
+  subjectKey, subjectOf, trackHref, trackOf,
 } from '../src/lib/notebook.mjs';
 
 const note = (file, extra = {}) => ({ file, title: file, description: '', date: '', tags: [], ...extra });
@@ -10,6 +11,9 @@ const note = (file, extra = {}) => ({ file, title: file, description: '', date: 
 test('a subject is derived from the notes repository path, never from a list', () => {
   assert.equal(subjectKey('typ/topology/continuous.html'), 'typ/topology');
   assert.equal(subjectKey('typ/functional-analysis/sobolev.html'), 'typ/functional-analysis');
+  // phys/ is the physics twin of typ/, so its second segment names the subject too.
+  assert.equal(subjectKey('phys/mechanics/kepler.html'), 'phys/mechanics');
+  assert.equal(subjectKey('physics/optics/lens.html'), 'physics/optics');
   assert.equal(subjectKey('models/cafeteria/note.html'), 'models');
   assert.equal(subjectKey('essays/on-proof.html'), 'essays');
   assert.equal(subjectKey('colophon.html'), 'other');
@@ -85,18 +89,76 @@ test('subject pages get stable, unique URLs even when directory names collide', 
   assert.equal(buildLibrary([note('typ/models/a.html'), note('models/b/note.html')]).subjects.map(s => s.slug).join(), slugs.join());
 });
 
-test('the sidebar follows the same subjects as the pages', () => {
+test('the sidebar follows the same tracks and subjects as the pages', () => {
   const library = buildLibrary([
     note('typ/topology/continuous.html', { title: 'Continuity', date: '2026-08-11' }),
+    note('phys/mechanics/kepler.html', { title: 'Kepler', date: '2026-09-05' }),
     note('models/cafeteria/note.html', { title: 'Cafeteria', date: '2026-09-01' }),
   ]);
   const items = sidebar(library);
   assert.deepEqual(items[0].items.map(item => item.link), ['/', ALL_NOTES_PATH, '/about.html']);
-  assert.deepEqual(items.slice(1).map(group => group.label), ['Topology', 'Mathematical modeling']);
-  assert.deepEqual(items[1].items, [{ label: 'Continuity', link: '/typ/topology/continuous.html' }]);
+  // Mathematics and physics are the two parallel lines; modeling is the third.
+  assert.deepEqual(items.slice(1).map(group => group.label), ['Mathematics', 'Physics', 'Modeling & computation']);
+  assert.deepEqual(items[1].items.map(group => group.label), ['Topology']);
+  assert.deepEqual(items[1].items[0].items, [{ label: 'Continuity', link: '/typ/topology/continuous.html' }]);
+  assert.deepEqual(items[2].items[0].items, [{ label: 'Kepler', link: '/phys/mechanics/kepler.html' }]);
+  assert.deepEqual(items[3].items.map(group => group.label), ['Mathematical modeling']);
+  assert.equal(items[2].badge.text, '1', 'a track shows how many notes it holds');
   const crowded = sidebar(buildLibrary(Array.from({ length: 9 }, (_, index) =>
     note(`typ/topology/n${index}.html`, { title: `N${index}`, date: '2026-01-01' }))));
-  assert.equal(crowded[1].collapsed, true, 'a long subject starts collapsed');
+  assert.equal(crowded[1].items[0].collapsed, true, 'a long subject starts collapsed');
+  assert.equal(crowded[1].collapsed, false, 'a track stays open so its subjects stay reachable');
+});
+
+test('a subject is filed into a track by where it lives, then by what it declares', () => {
+  assert.deepEqual(resolveTrack('typ/topology'), { key: 'mathematics', source: 'default' });
+  assert.deepEqual(resolveTrack('phys/mechanics'), { key: 'physics', source: 'layout' });
+  assert.deepEqual(resolveTrack('models'), { key: 'modeling', source: 'layout' });
+  // A physics-looking folder is the last resort before the default track.
+  assert.deepEqual(resolveTrack('typ/quantum-mechanics'), { key: 'physics', source: 'inferred' });
+  assert.deepEqual(resolveTrack('typ/solid-state-physics'), { key: 'physics', source: 'inferred' });
+  assert.deepEqual(resolveTrack('typ/statistical-learning'), { key: 'mathematics', source: 'default' });
+  // A declaration in the notes repository always wins, however it is written.
+  assert.deepEqual(resolveTrack('typ/quantum-mechanics', { track: 'Mathematics' }), { key: 'mathematics', source: 'manifest' });
+  assert.deepEqual(resolveTrack('typ/foo', {}, { track: 'physics' }), { key: 'physics', source: 'registry' });
+  assert.deepEqual(resolveTrack('typ/foo', { track: 'chemistry' }), { key: 'mathematics', source: 'default' },
+    'an unknown track name never becomes an unlabelled line');
+  assert.equal(normaliseTrackKey('Modeling & computation'), 'modeling');
+  assert.equal(normaliseTrackKey(''), null);
+  assert.equal(normaliseTrackKey(42), null);
+});
+
+test('every note belongs to exactly one track, empty tracks included', () => {
+  const library = buildLibrary([
+    note('typ/topology/continuous.html', { date: '2026-08-11' }),
+    note('phys/mechanics/kepler.html', { date: '2026-09-05' }),
+    note('models/cafeteria/note.html', { date: '2026-09-01' }),
+  ]);
+  assert.deepEqual(library.tracks.map(track => track.key), ['mathematics', 'physics', 'modeling']);
+  assert.equal(library.tracks.reduce((sum, track) => sum + track.count, 0), library.total);
+  const physics = library.tracks[1];
+  assert.deepEqual(physics.subjects.map(subject => subject.key), ['phys/mechanics']);
+  assert.equal(physics.count, 1);
+  assert.equal(physics.subjectCount, 1);
+  assert.equal(physics.latest.title, 'phys/mechanics/kepler.html');
+  assert.equal(physics.href, trackHref({ key: 'physics' }));
+  assert.equal(trackOf(library, 'phys/mechanics/kepler.html').label, 'Physics');
+  assert.equal(trackOf(library, 'missing.html'), null);
+  assert.equal(library.byFile['typ/topology/continuous.html'].track.key, 'mathematics');
+});
+
+test('a track with no notes yet keeps its page, its sidebar place and its count', () => {
+  const library = buildLibrary([note('typ/topology/continuous.html', { title: 'Continuity', date: '2026-08-11' })]);
+  const physics = library.tracks.find(track => track.key === 'physics');
+  assert.equal(physics.count, 0);
+  assert.equal(physics.subjectCount, 0);
+  assert.equal(physics.latest, null);
+  assert.equal(physics.updated, '');
+  assert.equal(physics.href, '/tracks/physics.html');
+  // The sidebar says so instead of dropping the line from the notebook.
+  const items = sidebar(library);
+  assert.deepEqual(items[2].items, [{ label: 'No notes yet', link: '/tracks/physics.html', attrs: { class: 'track-empty' } }]);
+  assert.equal(items[2].badge, undefined, 'an empty track carries no count');
 });
 
 test('dates are formatted for readers without inventing a value', () => {

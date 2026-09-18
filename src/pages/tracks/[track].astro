@@ -1,0 +1,44 @@
+---
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import SubjectCard from '../../components/SubjectCard.astro';
+import notes from '../../../.generated/notes.json';
+import subjectManifests from '../../../.generated/subjects.json';
+import { buildLibrary, formatDate, ALL_NOTES_PATH } from '../../lib/notebook.mjs';
+// One page per track. Mathematics and physics are the two parallel lines of the
+// notebook, modeling is the third, and every track has this page from the day it
+// is registered — even while it still has no notes — so the structure the site
+// advertises is always reachable.
+const library = buildLibrary(notes, subjectManifests);
+// Astro hoists getStaticPaths out of the component, so it builds its own view of
+// the same library instead of closing over the one below.
+export function getStaticPaths() {
+  return buildLibrary(notes, subjectManifests).tracks
+    .map(track => ({ params: { track: track.key }, props: { track } }));
+}
+const { track } = Astro.props;
+const others = library.tracks.filter(other => other.key !== track.key);
+const description = track.blurb || `Notes filed under ${track.label} in this notebook.`;
+const headings = track.subjects.length ? [{ depth: 2, slug: 'subjects', text: 'Subjects' }] : [];
+---
+<StarlightPage frontmatter={{ title: track.label, description, editUrl: false }} headings={headings}>
+  <div class="track-page not-content">
+    <header class="track-intro">
+      <p class="notes-eyebrow"><span class="edition-mark" aria-hidden="true">∴</span> TRACK</p>
+      <p class="track-lead">{track.blurb || `Everything filed under ${track.label} in this notebook.`}</p>
+      <p class="notes-meta">{track.count} {track.count === 1 ? 'note' : 'notes'} in {track.subjectCount} {track.subjectCount === 1 ? 'subject' : 'subjects'}{track.updated && <span> · last note {formatDate(track.updated)}</span>} · <a href={ALL_NOTES_PATH}>all notes</a> · <a href="/">overview</a></p>
+    </header>
+    {track.subjects.length > 0 && <>
+      <h2 id="subjects" class="track-group-heading">Subjects in {track.label}<span class="track-group-count">{track.subjectCount}</span></h2>
+      <div class="subject-grid">{track.subjects.map(subject => <SubjectCard subject={subject} />)}</div>
+    </>}
+    {!track.subjects.length && <p class="track-empty-note">This track is still gathering its first notes. Its subjects will be listed here as soon as they are written; the rest of the notebook is unaffected, and the full index always shows everything that exists.</p>}
+    {others.length > 0 && <nav class="track-neighbours" aria-label="Other tracks">
+      {others.map(other => <div class="track-neighbours-group">
+        <span class="index-label">{other.label}</span>
+        {other.subjects.length
+          ? other.subjects.map(subject => <a href={subject.href}>{subject.label}<sup>{subject.count}</sup></a>)
+          : <a href={other.href}>in preparation</a>}
+      </div>)}
+    </nav>}
+  </div>
+</StarlightPage>

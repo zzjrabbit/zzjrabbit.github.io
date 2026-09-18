@@ -2,17 +2,21 @@
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
 import notes from '../../.generated/notes.json';
 import subjectManifests from '../../.generated/subjects.json';
-import { buildLibrary, subjectOf, formatDate, ALL_NOTES_PATH } from '../lib/notebook.mjs';
+import { buildLibrary, subjectOf, trackOf, formatDate, ALL_NOTES_PATH } from '../lib/notebook.mjs';
 export function getStaticPaths() {
   return notes.map(note => ({ params: { note: note.file.replace(/\.html$/, '') }, props: { note } }));
 }
 const { note } = Astro.props;
 const stem = '/' + note.file.replace(/\.html$/, '');
-const subject = subjectOf(buildLibrary(notes, subjectManifests), note.file);
+const library = buildLibrary(notes, subjectManifests);
+const subject = subjectOf(library, note.file);
+// The context line walks the whole hierarchy: track, then subject, then index.
+const track = trackOf(library, note.file);
 ---
 <StarlightPage headings={note.headings} frontmatter={{ title: note.title, description: note.description, editUrl: `https://github.com/zzjrabbit/notes/edit/main/${note.file.replace(/\.html$/, '.typ')}` }}>
   <style is:inline set:html={note.mathCSS} />
   <nav class="note-context" aria-label="Notebook location" data-pagefind-ignore>
+    {track && <><a href={track.href}>{track.label}</a><span aria-hidden="true">/</span></>}
     {subject && <a href={subject.href}>{subject.label}</a>}
     <span aria-hidden="true">/</span>
     <a href={ALL_NOTES_PATH}>All notes</a>

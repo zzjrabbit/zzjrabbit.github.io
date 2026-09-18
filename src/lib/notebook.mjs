@@ -1,6 +1,6 @@
 /**
- * The notebook model: which subjects exist, how they are labelled, ordered and
- * linked, and how the sidebar and index pages are built from them.
+ * The notebook model: which tracks and subjects exist, how they are labelled,
+ * ordered and linked, and how the sidebar and index pages are built from them.
  *
  * Everything is derived from `.generated/notes.json` (written by
  * `scripts/prepare-starlight.mjs`), so a new folder in the notes repository
@@ -12,6 +12,44 @@
  */
 
 /**
+ * The parallel tracks of the notebook. Mathematics and physics are the two
+ * main lines of the notebook and are presented side by side; computational
+ * modeling is the third, smaller line. Every track is always published, even
+ * while it is still empty, so a track that is being built up is visible from
+ * its first day instead of appearing later.
+ */
+export const TRACK_REGISTRY = [
+  { key: 'mathematics', label: 'Mathematics', blurb: 'Structure, space and change, developed from definition to proof.' },
+  { key: 'physics', label: 'Physics', blurb: 'Mechanics, fields and quanta, with the mathematics each of them demands.' },
+  { key: 'modeling', label: 'Modeling & computation', blurb: 'Optimisation, simulation and numerical models, with every assumption stated up front.' },
+];
+
+/** A subject nobody has placed anywhere belongs to the first track. */
+export const DEFAULT_TRACK = 'mathematics';
+
+/**
+ * Which track a directory belongs to, decided by the notes repository layout
+ * alone. `phys/…` is the physics twin of `typ/…`, and the top-level `models/`
+ * collection is the computational modeling line.
+ */
+const TRACK_ROOTS = { phys: 'physics', physics: 'physics', models: 'modeling' };
+
+/**
+ * Folder names that read as physics even when they sit somewhere unexpected
+ * (for example `typ/quantum-mechanics/`). This is the last resort before the
+ * default track: a `track` in `subject.json` or a layout root above always
+ * wins, and `prepare-starlight.mjs` prints the subjects that needed a guess.
+ * Matched on whole words only, so `statistical-learning` stays mathematics.
+ */
+const PHYSICS_TERMS = [
+  'physics', 'phys', 'mechanics', 'quantum', 'electrodynamics', 'electromagnetism',
+  'relativity', 'thermodynamics', 'statistical-mechanics', 'field-theory', 'optics',
+  'condensed-matter', 'solid-state', 'particle', 'cosmology', 'astrophysics',
+  'plasma', 'nuclear', 'atomic', 'fluid-dynamics', 'waves', 'gravity', 'gravitation',
+  'photonics', 'superconductivity',
+];
+
+/**
  * Curated presentation for the subjects that exist today: display label, one
  * sentence of context and the order they are shown in. Directories that are not
  * listed here are still published automatically, with a label derived from the
@@ -19,7 +57,8 @@
  *
  * A notes directory can also describe itself in `subject.json`
  * (for example `typ/functional-analysis/subject.json`), which wins over this
- * table; see `README.md`.
+ * table; see `README.md`. An optional `track` on an entry here places a subject
+ * that neither its own manifest nor its location places.
  */
 export const SUBJECT_REGISTRY = [
   { key: 'typ/real', label: 'Real analysis', blurb: 'Limits, continuity and the structure of the real line, with the counterexamples that shape them.' },
@@ -39,18 +78,24 @@ const SIDEBAR_OPEN_LIMIT = 8;
 export const ALL_NOTES_PATH = '/notes.html';
 export const ABOUT_PATH = '/about.html';
 export const subjectHref = subject => `/subjects/${subject.slug}.html`;
+/** Every track has a landing page, including one that has no notes yet. */
+export const trackHref = track => `/tracks/${track.key}.html`;
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+/** Collection roots whose second path segment names the subject. */
+const TWO_LEVEL_ROOTS = new Set(['typ', 'phys', 'physics']);
+
 /**
  * The subject a published page belongs to, derived from its repository path:
- * `typ/topology/continuous.html` → `typ/topology`, `models/cafeteria/note.html`
- * → `models`. The notes repository layout is the only thing that decides this.
+ * `typ/topology/continuous.html` → `typ/topology`, `phys/quantum/…` →
+ * `phys/quantum`, `models/cafeteria/note.html` → `models`. The notes repository
+ * layout is the only thing that decides this.
  */
 export function subjectKey(file) {
   const segments = String(file).replace(/\.html$/, '').split('/');
   if (segments.length < 2) return OTHER_KEY;
-  return segments[0] === 'typ' ? `typ/${segments[1]}` : segments[0];
+  return TWO_LEVEL_ROOTS.has(segments[0]) ? `${segments[0]}/${segments[1]}` : segments[0];
 }
 
 /** Readable label for a subject nobody has described yet. */
@@ -67,6 +112,57 @@ export function autoSubjectLabel(key) {
 
 export function slugify(value) {
   return String(value).normalize('NFKD').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
+}
+
+/**
+ * The track key a declared value stands for: a `track` in `subject.json` may be
+ * written either as the key (`physics`) or as the published label (`Physics`).
+ * Anything else is reported as unknown so it can be warned about instead of
+ * published as an unlabelled track.
+ */
+export function normaliseTrackKey(value) {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const wanted = slugify(value);
+  const entry = TRACK_REGISTRY.find(track => track.key === wanted || slugify(track.label) === wanted);
+  return entry ? entry.key : null;
+}
+
+/**
+ * The folder-derived physics guess, used only after a manifest and the layout
+ * roots have had their say. Whole words only: `quantum-mechanics` and
+ * `solid-state-physics` qualify, `statistical-learning` does not.
+ */
+function inferredTrack(key) {
+  const name = slugify(String(key).split('/').pop());
+  if (!name) return null;
+  const words = name.split('-');
+  return words.some(word => PHYSICS_TERMS.includes(word)) ? 'physics' : null;
+}
+
+/**
+ * Which track a subject belongs to, and how that was decided:
+ *
+ *   1. `track` in that directory's own `subject.json` — authoritative, written
+ *      in the notes repository, so this website maintains no classification.
+ *   2. The repository layout: `phys/…` is the physics twin of `typ/…`, and the
+ *      `models/` collection is the modeling line.
+ *   3. An optional `track` on the subject's entry in `SUBJECT_REGISTRY`.
+ *   4. A physics-looking folder name (see `PHYSICS_TERMS`).
+ *   5. Otherwise `DEFAULT_TRACK`.
+ *
+ * The `source` is kept so `scripts/prepare-starlight.mjs` can point at the
+ * subjects that were only guessed at rather than deliberately placed.
+ */
+export function resolveTrack(key, manifest = {}, curated = {}) {
+  const declared = normaliseTrackKey(manifest?.track);
+  if (declared) return { key: declared, source: 'manifest' };
+  const root = TRACK_ROOTS[String(key).split('/')[0]];
+  if (root) return { key: root, source: 'layout' };
+  const registered = normaliseTrackKey(curated?.track);
+  if (registered) return { key: registered, source: 'registry' };
+  const guessed = inferredTrack(key);
+  if (guessed) return { key: guessed, source: 'inferred' };
+  return { key: DEFAULT_TRACK, source: 'default' };
 }
 
 /** Newest first; undated notes stay last, ties fall back to the title. */
@@ -109,9 +205,10 @@ function uniqueSlug(key, taken) {
 }
 
 /**
- * Build the whole notebook from the published notes: subjects in display order,
- * every note newest first, and the short "recently added" list for the home
- * page. `manifests` maps a subject key to the optional `subject.json` contents.
+ * Build the whole notebook from the published notes: the parallel tracks,
+ * the subjects in display order, every note newest first, and the short
+ * "recently added" list for the home page. `manifests` maps a subject key to
+ * the optional `subject.json` contents.
  */
 export function buildLibrary(notes, manifests = {}) {
   const registry = new Map(SUBJECT_REGISTRY.map((entry, index) => [entry.key, { ...entry, order: index }]));
@@ -137,8 +234,9 @@ export function buildLibrary(notes, manifests = {}) {
       : (key === OTHER_KEY ? Number.MAX_SAFE_INTEGER : curated.order ?? SUBJECT_REGISTRY.length);
     const sorted = [...list].sort(compareNotes);
     const slug = uniqueSlug(key, taken);
+    const track = resolveTrack(key, manifest, curated);
     return {
-      key, slug, label, blurb, order,
+      key, slug, label, blurb, order, track,
       href: subjectHref({ slug }),
       notes: sorted,
       count: sorted.length,
@@ -148,9 +246,25 @@ export function buildLibrary(notes, manifests = {}) {
   });
   subjects.sort((a, b) => a.order - b.order || a.label.localeCompare(b.label));
   const ordered = [...notes].sort(compareNotes);
+  // Every registered track is published, empty or not: the physics line is part
+  // of the notebook from the beginning even before its first note is written.
+  const tracks = TRACK_REGISTRY.map((track, index) => {
+    const members = subjects.filter(subject => subject.track.key === track.key);
+    const memberNotes = members.flatMap(subject => subject.notes).sort(compareNotes);
+    return {
+      key: track.key, label: track.label, blurb: track.blurb, order: index,
+      href: trackHref(track),
+      subjects: members,
+      count: memberNotes.length,
+      subjectCount: members.length,
+      latest: memberNotes[0] || null,
+      updated: memberNotes.find(note => note.date)?.date || '',
+    };
+  });
   return {
     notes: ordered,
     subjects,
+    tracks,
     recent: ordered.slice(0, RECENT_LIMIT),
     total: ordered.length,
     byFile: Object.fromEntries(subjects.flatMap(subject => subject.notes.map(note => [note.file, subject]))),
@@ -162,7 +276,17 @@ export function subjectOf(library, file) {
   return library.byFile[file] || null;
 }
 
-/** Starlight sidebar: one group per subject, generated from the same library. */
+/** The track of one published page, for the note page's own context line. */
+export function trackOf(library, file) {
+  const subject = subjectOf(library, file);
+  return subject ? library.tracks.find(track => track.key === subject.track.key) || null : null;
+}
+
+/**
+ * Starlight sidebar: one group per track, one nested group per subject inside
+ * it, generated from the same library the pages use. A track with no notes yet
+ * keeps its place and links to its own landing page instead of disappearing.
+ */
 export function sidebar(library) {
   return [
     {
@@ -173,10 +297,17 @@ export function sidebar(library) {
         { label: 'About', link: ABOUT_PATH },
       ],
     },
-    ...library.subjects.map(subject => ({
-      label: subject.label,
-      collapsed: subject.count > SIDEBAR_OPEN_LIMIT,
-      items: subject.notes.map(note => ({ label: note.title, link: `/${note.file}` })),
+    ...library.tracks.map(track => ({
+      label: track.label,
+      collapsed: false,
+      ...(track.count ? { badge: { text: String(track.count), class: 'track-count' } } : {}),
+      items: track.subjects.length
+        ? track.subjects.map(subject => ({
+            label: subject.label,
+            collapsed: subject.count > SIDEBAR_OPEN_LIMIT,
+            items: subject.notes.map(note => ({ label: note.title, link: `/${note.file}` })),
+          }))
+        : [{ label: 'No notes yet', link: track.href, attrs: { class: 'track-empty' } }],
     })),
   ];
 }

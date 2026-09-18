@@ -9,6 +9,7 @@ const library = buildLibrary(
   JSON.parse(await readFile('.generated/notes.json', 'utf8')),
   JSON.parse(await readFile('.generated/subjects.json', 'utf8')));
 const subjectPage = library.subjects[0].href;
+const trackPage = (library.tracks.find(track => track.subjectCount) || library.tracks[0]).href;
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH });
 try {
   const page = await browser.newPage();
@@ -21,7 +22,7 @@ try {
   });
   const failures = [];
   for (const theme of ['light', 'dark']) {
-    for (const file of ['/', '/notes.html', subjectPage, '/about.html', '/typ/lie/cover_linear.html', '/typ/real/func_eq_fdts.html']) {
+    for (const file of ['/', '/notes.html', subjectPage, trackPage, '/about.html', '/typ/lie/cover_linear.html', '/typ/real/func_eq_fdts.html']) {
       await page.setViewportSize({ width: 1440, height: 1000 });
       await page.goto('https://notes.test' + file);
       await page.addStyleTag({ content: '* { transition: none !important; }' });
@@ -32,7 +33,7 @@ try {
         const rgb = value => { ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = value; ctx.fillRect(0, 0, 1, 1); const c = [...ctx.getImageData(0, 0, 1, 1).data]; return [c[0], c[1], c[2], c[3] / 255]; };
         const luminance = channels => channels.slice(0, 3).map(v => v / 255).map(v => v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4).reduce((sum, v, i) => sum + v * [.2126, .7152, .0722][i], 0);
         const results = [];
-        const selectors = '.notes-description, .notes-meta, .notes-license, .note-card p, .card-kicker, .card-footer, .section-count, .note-tools a, .subject-index a, .about-page section p, .typst-article p, .note-environment-title, starlight-toc a, #starlight__sidebar a, .pagination-links a, .subject-card h3, .subject-blurb, .subject-latest, .subject-count, .recent-title, .recent-meta, .row-summary, .row-meta, .row-date, .note-context, .index-lead, .subject-lead, .section-heading .section-more';
+        const selectors = '.notes-description, .notes-meta, .notes-license, .note-card p, .card-kicker, .card-footer, .section-count, .note-tools a, .subject-index a, .about-page section p, .typst-article p, .note-environment-title, starlight-toc a, #starlight__sidebar a, .pagination-links a, .subject-card h3, .subject-blurb, .subject-latest, .subject-count, .recent-title, .recent-meta, .row-summary, .row-meta, .row-date, .note-context, .index-lead, .subject-lead, .section-heading .section-more, .track-panel h3, .track-panel p, .track-figures, .track-latest, .track-more, .track-group-heading h3, .track-group-heading a, .track-heading-blurb, .track-lead, .track-empty-note, .index-track-label';
         for (const el of document.querySelectorAll(selectors)) {
           if (!el.getClientRects().length) continue;
           const style = getComputedStyle(el);

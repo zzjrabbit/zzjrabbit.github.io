@@ -22,7 +22,7 @@ export default defineConfig({
       return { ...item, url: url.href };
     },
   }), starlight({
-    title: 'zzj', description: 'Lean 4 formal proofs and Typst mathematical notes.',
+    title: 'zzj', description: 'Typst notes and Lean 4 proofs in mathematics and physics.',
     defaultLocale: 'root', locales: { root: { label: 'English', lang: 'en' } },
     sidebar: sidebar(library), social: [{ icon: 'github', label: 'Notes source', href: 'https://github.com/zzjrabbit/notes' }],
     customCss: ['./src/styles/notes.css'],

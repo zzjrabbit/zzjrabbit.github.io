@@ -1,7 +1,7 @@
 import { readFile, writeFile, mkdir, readdir, cp, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { load } from 'cheerio';
-import { subjectKey } from '../src/lib/notebook.mjs';
+import { buildLibrary, normaliseTrackKey, subjectKey, TRACK_REGISTRY } from '../src/lib/notebook.mjs';
 
 export function extractNote(html, file) {
   const $ = load(html);
@@ -44,9 +44,13 @@ export function extractNote(html, file) {
 
 // Match the full subject-relative path, never just the basename. A companion
 // file is a source reference, not a claim that every result is formalized.
+// `phys/` mirrors into `lean/` exactly as `typ/` does, so a physics note keeps
+// the same relative path in both repositories' collections.
 export function leanSourceFor(file, leanFiles) {
-  if (!file.startsWith('typ/') || !file.endsWith('.html')) return null;
-  const lean = file.replace(/^typ\//, 'lean/').replace(/\.html$/, '.lean');
+  if (!file.endsWith('.html')) return null;
+  const mirrored = /^(?:typ|phys)\//.test(file) ? file.replace(/^(?:typ|phys)\//, 'lean/') : null;
+  if (!mirrored) return null;
+  const lean = mirrored.replace(/\.html$/, '.lean');
   return leanFiles.has(lean)
     ? `https://github.com/zzjrabbit/notes/blob/main/${lean.split('/').map(encodeURIComponent).join('/')}`
     : null;
@@ -196,8 +200,9 @@ async function readCalepinMetadata() {
 
 /**
  * Optional `subject.json` manifests let a notes directory describe its own
- * section (label, blurb, order) without touching this repository. The file sits
- * in the directory that names the subject: `typ/<subject>/` or `models/`.
+ * section (label, blurb, order, and the track it belongs to) without touching
+ * this repository. The file sits in the directory that names the subject:
+ * `typ/<subject>/`, `phys/<subject>/` or `models/`.
  */
 async function readSubjectManifests(files) {
   const manifests = {};
@@ -265,6 +270,21 @@ async function prepare() {
   if (!notes.length) throw new Error('No compiled notes; run scripts/build.sh first');
   for (const key of Object.keys(subjectManifests)) {
     if (!notes.some(note => subjectKey(note.file) === key)) console.warn(`Ignoring site/${key}/subject.json: no published note belongs to that subject`);
+  }
+  // Which track a subject belongs to is decided in the notes repository: a
+  // `track` in its own subject.json, the phys/ and models/ roots, or a
+  // physics-looking folder name. Report the guesses and refuse track values this
+  // site cannot label, so a typo never turns into a silent misfiling.
+  const trackKeys = TRACK_REGISTRY.map(track => track.key).join(', ');
+  for (const [key, manifest] of Object.entries(subjectManifests)) {
+    if (manifest.track !== undefined && !normaliseTrackKey(manifest.track)) {
+      console.warn(`Ignoring track ${JSON.stringify(manifest.track)} in site/${key}/subject.json: expected one of ${trackKeys}`);
+    }
+  }
+  for (const subject of buildLibrary(notes, subjectManifests).subjects) {
+    if (subject.track.source === 'inferred') {
+      console.warn(`Filing ${subject.key} under the ${subject.track.key} track by folder name; add "track": "${subject.track.key}" to its subject.json to make that explicit`);
+    }
   }
   // Hand-maintained public assets survive regeneration of the staging directory.
   await cp('public', '.generated/public', { recursive: true });

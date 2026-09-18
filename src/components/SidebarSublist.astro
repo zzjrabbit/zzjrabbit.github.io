@@ -23,18 +23,30 @@ interface SidebarGroup {
 type SidebarEntry = SidebarLink | SidebarGroup;
 interface Props {
   sublist: SidebarEntry[];
-  nested?: boolean;
+  /** How deep this list sits: 0 = top level, 1 = inside a track, 2 = inside a subject. */
+  depth?: number;
 }
 
-const { sublist, nested } = Astro.props;
+const { sublist, depth = 0 } = Astro.props;
+const nested = depth > 0;
 
-// Which subject a group stands for is decided by the notes inside it, never by
-// its label, so renaming a subject (or adding a new folder) cannot mislink it.
+// Which track or subject a group stands for is decided by the notes inside it,
+// never by its label, so renaming a track or a subject (or adding a new folder)
+// cannot mislink or misgroup it.
 const library = buildLibrary(notes, subjectManifests);
 const currentPath = Astro.url.pathname;
 const subjectFor = (entry: SidebarGroup) => {
   const first = entry.entries.find((child): child is SidebarLink => child.type === 'link');
   return first ? library.byFile[first.href.replace(/^\//, '')] || null : null;
+};
+// A track group is recognised structurally too: it holds subject groups, or —
+// while a track still has no notes — the single link to its own track page.
+const trackFor = (entry: SidebarGroup) => {
+  const child = entry.entries.find((inner): inner is SidebarGroup => inner.type === 'group');
+  const subject = child ? subjectFor(child) : null;
+  if (subject) return library.tracks.find(track => track.key === subject.track.key) || null;
+  const link = entry.entries.find((inner): inner is SidebarLink => inner.type === 'link');
+  return link ? library.tracks.find(track => track.href === link.href) || null : null;
 };
 const containsCurrent = (entries: SidebarEntry[]): boolean =>
   entries.some(entry => (entry.type === 'link' ? entry.isCurrent : containsCurrent(entry.entries)));
@@ -63,11 +75,27 @@ const containsCurrent = (entries: SidebarEntry[]): boolean =>
 				) : (
 					(() => {
 						const subject = subjectFor(entry);
-						const isCurrent = subject?.href === currentPath;
+						const track = trackFor(entry);
+						const isCurrent = subject?.href === currentPath || track?.href === currentPath;
 						return (
-							<details open={isCurrent || containsCurrent(entry.entries) || !entry.collapsed}>
+							<details
+								open={isCurrent || containsCurrent(entry.entries) || !entry.collapsed}
+								class:list={{ 'sidebar-track': Boolean(track) }}
+							>
 								<summary>
-									{subject ? (
+									{track ? (
+										<a class="track-link" href={track.href} aria-current={isCurrent ? 'page' : undefined}>
+											<span class="large">{entry.label}</span>
+											{entry.badge && (
+												<Badge
+													variant={entry.badge.variant}
+													class={entry.badge.class}
+													text={entry.badge.text}
+												/>
+											)}
+											<span class="track-arrow" aria-hidden="true">↗</span>
+										</a>
+									) : subject ? (
 										<a class="group-link" href={subject.href} aria-current={isCurrent ? 'page' : undefined}>
 											<span class="large">{entry.label}</span>
 											<span class="group-arrow" aria-hidden="true">↗</span>
@@ -89,7 +117,7 @@ const containsCurrent = (entries: SidebarEntry[]): boolean =>
 									</span>
 								</summary>
 								<SidebarRestorePoint />
-								<Astro.self sublist={entry.entries} nested />
+								<Astro.self sublist={entry.entries} depth={depth + 1} />
 							</details>
 						);
 					})()
@@ -101,9 +129,9 @@ const containsCurrent = (entries: SidebarEntry[]): boolean =>
 
 <script>
 	// Starlight's sidebar state persister records every click inside a `<summary>`
-	// as a toggle of its group. Here the label is a link, so clicking it must not
-	// be recorded as collapsing that subject's group.
-	for (const link of document.querySelectorAll('#starlight__sidebar a.group-link')) {
+	// as a toggle of its group. Here the label is a link — a subject's or a
+	// track's — so clicking it must not be recorded as collapsing that group.
+	for (const link of document.querySelectorAll('#starlight__sidebar a.group-link, #starlight__sidebar a.track-link')) {
 		link.addEventListener('click', event => event.stopPropagation());
 	}
 </script>

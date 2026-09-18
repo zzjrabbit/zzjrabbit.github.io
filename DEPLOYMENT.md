@@ -10,8 +10,8 @@
 已通过：
 - 完整 notes 同步 → Calepin/Typst → Astro 构建与数学渲染检查。
 - 从待提交源码复制出的独立干净目录执行 `npm ci --ignore-scripts`，再完整构建；没有复用旧站点产物。
-- 16 项 Node 测试，涵盖栏目模型（学科识别、排序、学科页 URL、可选 `subject.json`）、元数据解析、数学桥接、资源/锚点/sitemap 发布门禁、同步幂等与删除分类。
-- 浏览器检查：320 / 390 / 768 / 1024 / 1440px、长文、手机菜单/Escape、44px 导航点击区域、深浅主题与实际搜索。
+- 19 项 Node 测试，涵盖轨道模型（轨道归属的五级判定、空轨道、侧边栏三层结构）、栏目模型（学科识别、排序、学科页 URL、可选 `subject.json`）、元数据解析、数学桥接、资源/锚点/sitemap 发布门禁、同步幂等与删除分类。
+- 浏览器检查：320 / 390 / 768 / 1024 / 1440px、长文、手机菜单/Escape、44px 导航点击区域、深浅主题与实际搜索、每条轨道页与轨道侧边栏入口。
 - `actionlint` 检查网站 GitHub Actions 配置。
 - `npm audit --omit=dev --audit-level=moderate` 当前报告 0 个已知漏洞（不等于完整安全审计）。
 
@@ -30,11 +30,12 @@
 ## 本次修复与持续发布门禁
 
 - 根 favicon 与持久 `public/` 资源目录；桥接不再公开 Calepin 内部 manifest 和旧首页/404 模板。
-- 统一首页 `/`（学科卡片封面）、完整索引 `/notes.html`、自动生成的学科页 `/subjects/*.html`、文章 `.html` canonical 与 sitemap；robots 使用唯一 sitemap-index。
-- 栏目（学科）由笔记仓库目录自动生成，新增目录即新增栏目，不再有硬编码分类或兜底分类；笔记的日期/标签来自 Calepin 页面索引，缺失时回退解析笔记源码。
+- 统一首页 `/`（轨道面板 + 按轨道分组的学科卡片封面）、完整索引 `/notes.html`（轨道 → 学科两级）、自动生成的轨道页 `/tracks/*.html`、自动生成的学科页 `/subjects/*.html`、文章 `.html` canonical 与 sitemap；robots 使用唯一 sitemap-index。
+- 数学、物理与计算建模是三条并行轨道：轨道归属由笔记仓库表达（`subject.json` 的 `track`、`phys/` 与 `models/` 目录约定、目录名关键词兜底），新增目录即新增栏目，不再有硬编码分类或兜底分类；暂时没有笔记的轨道照常发布并显示占位说明。
+- 栏目（学科）由笔记仓库目录自动生成；笔记的日期/标签来自 Calepin 页面索引，缺失时回退解析笔记源码。
 - 404 添加 `noindex, follow`。
 - 现有英文文章正文标记 `lang=en`，导航保持中文；下载明确说明只有单文件，完整编译需要笔记仓库。
-- 构建校验覆盖首页、完整索引、每个学科页、404、文章、本地 head 资源、页面及跨页锚点、重复 ID、canonical/sitemap，并要求每篇笔记都有日期、学科与唯一的索引/学科页位置。
+- 构建校验覆盖首页、完整索引、每条轨道页、每个学科页、404、文章、本地 head 资源、页面及跨页锚点、重复 ID、canonical/sitemap，并要求每篇笔记都有日期、所属轨道与学科，以及唯一的索引/学科页位置。
 - CI 增加 Playwright Chromium 浏览器门禁，在上传 Pages 产物之前执行；失败时保留截图 7 天。构建 job 最长 30 分钟，checkout 不持久保存凭据。
 - 上游删除整个可选分类后，同步器删除旧副本，防止旧内容继续发布。
 
@@ -42,7 +43,7 @@
 
 1. 在网站仓库 Actions 确认 build 和 deploy 均成功；通知 workflow 成功仅表示请求已接受。
 2. 打开真实 `https://zzjrabbit.github.io/`，检查桌面/手机导航、深浅主题和站内搜索。
-3. 检查 `/notes.html` 与各 `/subjects/*.html`：分组、计数、侧边栏分组与学科页计数是否与笔记仓库目录一致。
+3. 检查 `/notes.html`、各 `/tracks/*.html` 与各 `/subjects/*.html`：轨道分组、计数、侧边栏的轨道/学科分组与学科页计数是否与笔记仓库目录一致（空的 Physics 轨道应显示占位说明而不是消失）。
 4. 检查每篇 `.html`、PDF、单文件 `.typ`、`favicon.svg`、`robots.txt`、`sitemap-index.xml` 及其子 sitemap。
 5. 检查随机不存在路径真正返回 HTTP 404，而不是内容为错误页的 HTTP 200；确认 `/404.html` 的 noindex 元标记。
 6. 检查 HTTPS、规范 URL 与重定向终点，没有旧缓存/旧主题；核对 `build-revision.txt` 与此次网站和笔记提交 SHA。

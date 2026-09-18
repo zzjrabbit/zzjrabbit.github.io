@@ -4,7 +4,7 @@ import { load } from 'cheerio';
 import { extractNote, leanSourceFor, normaliseTags, parseSiteMetadata } from '../scripts/prepare-starlight.mjs';
 
 test('links only exact companion Lean files for Typst notes', () => {
-  const files = new Set(['lean/topology/continuous.lean', 'lean/Main.lean', 'lean/real/a b.lean']);
+  const files = new Set(['lean/topology/continuous.lean', 'lean/Main.lean', 'lean/real/a b.lean', 'lean/mechanics/kepler.lean']);
   assert.equal(leanSourceFor('typ/topology/continuous.html', files), 'https://github.com/zzjrabbit/notes/blob/main/lean/topology/continuous.lean');
   assert.equal(leanSourceFor('typ/real/continuous.html', files), null);
   assert.equal(leanSourceFor('typ/topology/missing.html', files), null);
@@ -12,6 +12,10 @@ test('links only exact companion Lean files for Typst notes', () => {
   assert.equal(leanSourceFor('typ/topology/continuous.pdf', files), null);
   assert.equal(leanSourceFor('typ/real/a b.html', files), 'https://github.com/zzjrabbit/notes/blob/main/lean/real/a%20b.lean');
   assert.equal(leanSourceFor('typ/topology/continuous.html', new Set()), null);
+  // A physics note mirrors into lean/ exactly as a mathematics note does.
+  assert.equal(leanSourceFor('phys/mechanics/kepler.html', files), 'https://github.com/zzjrabbit/notes/blob/main/lean/mechanics/kepler.lean');
+  assert.equal(leanSourceFor('phys/mechanics/missing.html', files), null);
+  assert.equal(leanSourceFor('essays/on-proof.html', files), null);
 });
 
 test('retains mathematics, SVG, old anchors and relative links without Markdown parsing', () => {

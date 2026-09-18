@@ -1,17 +1,20 @@
 ---
 import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import SubjectCard from '../components/SubjectCard.astro';
 import notes from '../../.generated/notes.json';
 import subjectManifests from '../../.generated/subjects.json';
 import { buildLibrary, formatDate, ALL_NOTES_PATH } from '../lib/notebook.mjs';
 // The home page stays the same size no matter how many notes exist: it shows one
-// card per subject plus a short list of recent additions, and links to the full
-// index. Subjects come from the notes repository layout, never from a list here.
+// panel per track, one card per subject — grouped under the track it belongs to —
+// plus a short list of recent additions, and links to the full index. Tracks and
+// subjects come from the notes repository layout, never from a list here.
 const library = buildLibrary(notes, subjectManifests);
-const { subjects, recent, total } = library;
+const { tracks, subjects, recent, total } = library;
 const firstNote = subjects[0]?.notes[0] ?? recent[0] ?? null;
 const latest = library.notes.find(note => note.date)?.date || '';
 const number = (n: number) => String(n).padStart(2, '0');
 const headings = [
+  ...(tracks.length ? [{ depth: 2, slug: 'tracks', text: 'Tracks' }] : []),
   ...(subjects.length ? [{ depth: 2, slug: 'subjects', text: 'Subjects' }] : []),
   ...(recent.length ? [{ depth: 2, slug: 'recent', text: 'Recently added' }] : []),
 ];
@@ -19,12 +22,12 @@ const headings = [
 // Starlight merges these entries by identity, replacing its default tags.
 const homeUrl = new URL('/', Astro.site).href;
 ---
-<StarlightPage frontmatter={{ title: 'Mathematical Notes', description: 'From mathematical intuition to formal proof: Typst notes, Lean 4 proofs, and mathematical modeling.', editUrl: false, head: [{ tag: 'link', attrs: { rel: 'canonical', href: homeUrl } }, { tag: 'meta', attrs: { property: 'og:url', content: homeUrl } }] }} headings={headings}>
+<StarlightPage frontmatter={{ title: 'Mathematics & Physics Notes', description: 'Mathematics and physics developed side by side: Typst notes, Lean 4 proofs, and computational models.', editUrl: false, head: [{ tag: 'link', attrs: { rel: 'canonical', href: homeUrl } }, { tag: 'meta', attrs: { property: 'og:url', content: homeUrl } }] }} headings={headings}>
   <div class="notes-home not-content">
     <div class="notes-intro">
-      <div class="notes-eyebrow"><span class="edition-mark" aria-hidden="true">∴</span> A PERSONAL MATHEMATICAL NOTEBOOK</div>
+      <div class="notes-eyebrow"><span class="edition-mark" aria-hidden="true">∴</span> A PERSONAL NOTEBOOK IN MATHEMATICS AND PHYSICS</div>
       <p class="notes-lead">Begin with intuition.<br />Arrive at <span>proof.</span></p>
-      <p class="notes-description">A notebook on structure, space, and change. Exploring mathematical ideas and derivations, and the beauty of rigorous formal proof with Lean 4.</p>
+      <p class="notes-description">A notebook on structure, space, and change — and on the physical world those ideas describe. Mathematics and physics are developed side by side here, from mathematical exposition and physical derivation to rigorous formal proof with Lean 4.</p>
       <div class="note-tools">
         {firstNote && <a class="primary-link" href={'/' + firstNote.file}>Start reading <span aria-hidden="true">↗</span></a>}
         <a href={ALL_NOTES_PATH}>All {total} {total === 1 ? 'note' : 'notes'} <span aria-hidden="true">↗</span></a>
@@ -33,33 +36,53 @@ const homeUrl = new URL('/', Astro.site).href;
       <div class="notebook-stats" aria-label="Notebook overview">
         <span><strong>{number(total)}</strong> {total === 1 ? 'note' : 'notes'}</span>
         <span><strong>{number(subjects.length)}</strong> {subjects.length === 1 ? 'subject' : 'subjects'}</span>
+        <span><strong>{number(tracks.length)}</strong> {tracks.length === 1 ? 'track' : 'tracks'}</span>
         <span class="notebook-format">Native math <span aria-hidden="true">/</span> PDF editions</span>
         {latest && <span class="notebook-updated">Last note {formatDate(latest)}</span>}
       </div>
     </div>
+    {tracks.length > 0 && <section class="home-section" aria-labelledby="tracks">
+      <div class="section-heading">
+        <h2 id="tracks">Tracks</h2>
+        <span class="section-count">{tracks.length} parallel {tracks.length === 1 ? 'line' : 'lines'}</span>
+        <a class="section-more" href={ALL_NOTES_PATH}>All notes <span aria-hidden="true">↗</span></a>
+      </div>
+      <div class="track-band">{tracks.map(track => <a class="track-panel" href={track.href}>
+        <span class="track-figures">{track.count} {track.count === 1 ? 'note' : 'notes'} · {track.subjectCount} {track.subjectCount === 1 ? 'subject' : 'subjects'}</span>
+        <h3>{track.label}</h3>
+        {track.blurb && <p>{track.blurb}</p>}
+        {track.latest && <p class="track-latest"><span class="subject-latest-label">Latest</span> {track.latest.title}{track.updated && <time datetime={track.updated}> · {formatDate(track.updated)}</time>}</p>}
+        <span class="track-more" aria-hidden="true">Browse track →</span>
+      </a>)}</div>
+    </section>}
     {subjects.length > 0 && <section class="home-section" aria-labelledby="subjects">
       <div class="section-heading">
         <h2 id="subjects">Subjects</h2>
         <span class="section-count">{subjects.length} {subjects.length === 1 ? 'subject' : 'subjects'}</span>
         <a class="section-more" href={ALL_NOTES_PATH}>All notes <span aria-hidden="true">↗</span></a>
       </div>
-      <div class="subject-grid">{subjects.map(subject => <a class="subject-card" href={subject.href}>
-        <span class="subject-count">{subject.count} {subject.count === 1 ? 'note' : 'notes'}</span>
-        <h3>{subject.label}</h3>
-        {subject.blurb && <p class="subject-blurb">{subject.blurb}</p>}
-        {subject.latest && <p class="subject-latest"><span class="subject-latest-label">Latest</span> {subject.latest.title}{subject.updated && <time datetime={subject.updated}> · {formatDate(subject.updated)}</time>}</p>}
-        <span class="subject-more" aria-hidden="true">Browse subject →</span>
-      </a>)}</div>
+      {tracks.filter(track => track.subjects.length > 0).map(track => <>
+        <div class="track-group-heading">
+          <h3>{track.label}</h3>
+          <span class="track-group-count">{track.subjectCount} {track.subjectCount === 1 ? 'subject' : 'subjects'} · {track.count} {track.count === 1 ? 'note' : 'notes'}</span>
+          <a href={track.href}>Track page <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="subject-grid">{track.subjects.map(subject => <SubjectCard subject={subject} />)}</div>
+      </>)}
     </section>}
     {recent.length > 0 && <section class="home-section" aria-labelledby="recent">
       <div class="section-heading">
         <h2 id="recent">Recently added</h2>
         <span class="section-count">Newest first</span>
       </div>
-      <ol class="recent-list">{recent.map(note => <li class="recent-item">
-        <a class="recent-title" href={'/' + note.file}>{note.title}</a>
-        <span class="recent-meta">{library.byFile[note.file] && <a class="recent-subject" href={library.byFile[note.file].href}>{library.byFile[note.file].label}</a>}{note.date && <time datetime={note.date}>{formatDate(note.date)}</time>}</span>
-      </li>)}</ol>
+      <ol class="recent-list">{recent.map(note => {
+        const owner = library.byFile[note.file];
+        const track = owner ? tracks.find(item => item.key === owner.track.key) : null;
+        return <li class="recent-item">
+          <a class="recent-title" href={'/' + note.file}>{note.title}</a>
+          <span class="recent-meta">{owner && <a class="recent-subject" href={owner.href}>{owner.label}</a>}{track && <span class="recent-track">{track.label}</span>}{note.date && <time datetime={note.date}>{formatDate(note.date)}</time>}</span>
+        </li>;
+      })}</ol>
     </section>}
     {!total && <p class="notes-empty">The notebook is taking shape. New notes are on the way.</p>}
     <div class="notebook-colophon"><span aria-hidden="true">∎</span><p>One intuition, one deduction at a time.<br /><span>Gathering what I learn, leaving a trail for the next idea.</span></p></div>
