@@ -149,6 +149,24 @@ try {
   assert.equal(await firstGroup.evaluate(el => el.open), false, 'the caret collapses the group');
   await groupToggle.click();
   assert.equal(await firstGroup.evaluate(el => el.open), true, 'the caret expands the group again');
+  // The current page is marked on exactly one row, and the mark is drawn on the
+  // row rather than on the label inside it: a track or subject label is the link
+  // to that page and has no inline padding of its own, so a chip drawn on the
+  // link used to put its accent rule on the first letter of the title. A track
+  // whose own page is open also lists "No notes yet" at the same URL; that row
+  // must not repeat the mark its heading already carries.
+  const cueRow = '#starlight__sidebar summary[data-current], #starlight__sidebar a[aria-current="page"]:not(.group-link):not(.track-link)';
+  const emptyTrack = library.tracks.find(track => !track.count);
+  for (const file of [emptyTrack?.href.slice(1), subjectFiles[0], 'about.html'].filter(Boolean)) {
+    await page.goto(`https://notes.test/${file}`);
+    assert.equal(await page.locator(cueRow).count(), 1, `sidebar marks one current row: ${file}`);
+    assert.equal(await page.locator('#starlight__sidebar [aria-current="page"]').count(), 1, `sidebar marks one current link: ${file}`);
+    const clearance = await page.locator(cueRow).evaluate(el => {
+      const label = el.querySelector('span.large') || el.querySelector('span');
+      return label.getBoundingClientRect().left - el.getBoundingClientRect().left;
+    });
+    assert.ok(clearance >= 8, `the current row's accent rule clears its label (${file}: ${clearance.toFixed(1)}px)`);
+  }
   // The select is a hidden Starlight compatibility bridge. Exercise the visible
   // radio labels, as users do, rather than trying to interact with that bridge.
   const picker = page.locator('starlight-theme-select:visible').first();

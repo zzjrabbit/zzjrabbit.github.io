@@ -25,10 +25,20 @@ interface Props {
   sublist: SidebarEntry[];
   /** How deep this list sits: 0 = top level, 1 = inside a track, 2 = inside a subject. */
   depth?: number;
+  /** Href of the nearest enclosing track or subject whose own label is the current page. */
+  currentHref?: string;
 }
 
-const { sublist, depth = 0 } = Astro.props;
+const { sublist, depth = 0, currentHref } = Astro.props;
 const nested = depth > 0;
+
+// `class` is merged into `class:list` below, so spreading it again would emit a
+// second class attribute on the same element — invalid markup that browsers
+// drop, leaving the stylesheet to decide by accident.
+const withoutClass = (attrs: Record<string, unknown> | undefined) => {
+  const { class: _class, ...rest } = attrs ?? {};
+  return rest;
+};
 
 // Which track or subject a group stands for is decided by the notes inside it,
 // never by its label, so renaming a track or a subject (or adding a new folder)
@@ -59,9 +69,9 @@ const containsCurrent = (entries: SidebarEntry[]): boolean =>
 				{entry.type === 'link' ? (
 					<a
 						href={entry.href}
-						aria-current={entry.isCurrent ? 'page' : undefined}
+						aria-current={entry.isCurrent && entry.href !== currentHref ? 'page' : undefined}
 						class:list={[{ large: !nested }, entry.attrs?.class]}
-						{...entry.attrs}
+						{...withoutClass(entry.attrs)}
 					>
 						<span>{entry.label}</span>
 						{entry.badge && (
@@ -77,12 +87,17 @@ const containsCurrent = (entries: SidebarEntry[]): boolean =>
 						const subject = subjectFor(entry);
 						const track = trackFor(entry);
 						const isCurrent = subject?.href === currentPath || track?.href === currentPath;
+						// The label of a track or a subject is the link to that page, so
+						// the row it sits in — not the label — carries the current-page
+						// mark; a heading label has no padding of its own, and a chip
+						// drawn on it puts the accent rule on the first letter.
+						const headingHref = isCurrent ? track?.href ?? subject?.href : undefined;
 						return (
 							<details
 								open={isCurrent || containsCurrent(entry.entries) || !entry.collapsed}
 								class:list={{ 'sidebar-track': Boolean(track) }}
 							>
-								<summary>
+								<summary data-current={isCurrent ? '' : undefined}>
 									{track ? (
 										<a class="track-link" href={track.href} aria-current={isCurrent ? 'page' : undefined}>
 											<span class="large">{entry.label}</span>
@@ -117,7 +132,7 @@ const containsCurrent = (entries: SidebarEntry[]): boolean =>
 									</span>
 								</summary>
 								<SidebarRestorePoint />
-								<Astro.self sublist={entry.entries} depth={depth + 1} />
+								<Astro.self sublist={entry.entries} depth={depth + 1} currentHref={headingHref ?? currentHref} />
 							</details>
 						);
 					})()

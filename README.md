@@ -242,6 +242,7 @@ NOTES_DIR=/path/to/notes scripts/build.sh
 `src/pages/` 负责首页、完整索引、轨道页、学科页与笔记页面，`src/styles/notes.css` 负责「暖纸 / 赤陶 / 墨色」手札主题、正文衬线字体及数学环境样式。首页是尺寸固定的封面：每条轨道一个面板，每个学科一张卡片（含笔记数、最新一篇与日期），加上最多 5 条「最近新增」，其余笔记交给 `/notes.html`；深色模式使用暖墨底色，并支持键盘焦点与减少动态效果偏好。
 侧边栏的三层结构、组内顺序与「All notes」入口都由 `src/lib/notebook.mjs` 依笔记生成（笔记超过 8 篇的学科默认折叠，轨道组默认展开），`astro.config.mjs` 不再手写分类。
 **轨道标题与学科标题都是链接**，分别进入轨道页与学科页，右侧箭头才是展开/收起（`src/components/Sidebar.astro` 覆盖 Starlight 的 `Sidebar`，`SidebarSublist.astro` 是改写后的上游模板；点标题不会被误记为「收起该分组」）。轨道标题用独立的 `.track-link` 类，因此「每个学科页都能从侧边栏一次点到」这条既有的浏览器回归断言仍然只依赖 `.group-link`。旧的 Calepin 主题 CSS、导航脚本及 `site/index.typ` 不再控制最终网站外观。
+「当前页」标记画在**整行**上，而不是行内的标题上：轨道/学科标题本身就是进入该页的链接，`padding-inline` 为 0，标记若画在链接上，强调竖线就会压住标题首字。因此 `SidebarSublist.astro` 给这类行的 `<summary>` 加 `data-current`（轨道页自己的「No notes yet」行指向同一 URL，不再重复标记），`src/styles/notes.css` 用 `--notebook-current-*` 一组 token 统一着色（浅色模式用 `accent-high` 作为文字色，保证 4.5:1）。
 
 数学继续使用 Typst 原生 MathML，**不重写公式内容、不引入 MathJax、不改笔记 PDF**。
 `site/themes/site/js/math.js` 作为保留的数学增强，由 Astro 笔记页面导入；它为行间公式与超宽行内矩阵添加滚动容器，
@@ -266,7 +267,9 @@ CHROMIUM_PATH=/path/to/chromium node scripts/check-readability.mjs
 浏览器脚本需要已安装的 Chromium（默认查找 `chromium` 或 `chromium-browser`）及 `npm ci` 安装的 Playwright 依赖。
 它拦截 `https://notes.test/` 的**虚拟请求**，直接返回本地 `_site/` 文件，**不启动 HTTP 服务器**，也不替换已有预览服务。
 脚本覆盖五种视口宽度（320/390/768/1024/1440px）、首页封面、完整索引、每条轨道页、每个学科页、代表性长文、移动菜单/Escape、浅深色、搜索及页面错误，
+并断言侧边栏**每页只有一个「当前页」标记**、标记所在的整行与其标题之间留出至少 8px（避免强调竖线压住标题）；
 截图写入 `.generated/screenshots/`（下次桥接会清理）。
+`check-readability.mjs` 的对比度抽样也补上了侧边栏当前页的标题（`#starlight__sidebar summary[data-current] .large`）：它是 `<span>` 而非 `<a>`，此前不在抽样范围内，浅色模式下 3.6:1 的文字因此无人过问。
 `check-starlight.mjs` 另外校验：每篇笔记在完整索引与其学科页各出现一次、首页每个学科一张卡片且不直接铺开笔记、
 每条轨道都有自己的页面与侧边栏分组、每篇笔记都有日期与所属轨道/学科、canonical/sitemap 与新增页面一致。
 本次轨道改版已完成 `npm run check`（19 项）、完整 `scripts/build.sh`、`scripts/check-rendering.sh`、浏览器回归、可读性与主题检查；

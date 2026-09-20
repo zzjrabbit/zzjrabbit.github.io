@@ -26,6 +26,16 @@
   --notebook-card: #26211d;
   --notebook-shadow: 0 2px 4px #00000010, 0 12px 32px #00000016;
   --notebook-radius: .75rem;
+  /* The current page in the sidebar. The dark sidebar is only a shade away from
+     its own background, so the chip is mixed from the accent rather than from
+     --sl-color-accent-low, which all but disappears there; the light theme needs
+     a smaller share of the accent to stay a tint. */
+  --notebook-current-chip: color-mix(in srgb, var(--sl-color-accent) 26%, var(--sl-color-bg-sidebar));
+  --notebook-current-chip-hover: color-mix(in srgb, var(--sl-color-accent) 36%, var(--sl-color-bg-sidebar));
+  --notebook-current-rule: var(--sl-color-accent);
+  /* --sl-color-text-accent is the accent itself in the light theme, and accent
+     on a tinted chip only reaches 3.6:1; accent-high keeps the label readable. */
+  --notebook-current-label: var(--sl-color-accent-high);
 }
 :root[data-theme='light'] {
   --sl-color-accent-low: #f1e0d5;
@@ -45,6 +55,8 @@
   --sl-color-bg-sidebar: #f5f0e7;
   --notebook-card: #fffdf8;
   --notebook-shadow: 0 2px 4px #49332104, 0 12px 32px #49332108;
+  --notebook-current-chip: color-mix(in srgb, var(--sl-color-accent) 15%, var(--sl-color-bg-sidebar));
+  --notebook-current-chip-hover: color-mix(in srgb, var(--sl-color-accent) 23%, var(--sl-color-bg-sidebar));
 }
 ::selection { background: var(--sl-color-accent-low); color: var(--sl-color-accent-high); }
 a, button, select, summary { -webkit-tap-highlight-color: transparent; }
@@ -117,17 +129,9 @@ a, button, select, summary { -webkit-tap-highlight-color: transparent; }
 #starlight__sidebar summary .group-link:hover .large,
 #starlight__sidebar summary .group-link:focus-visible .large { color: var(--sl-color-white); text-decoration: underline; text-underline-offset: .2em; }
 #starlight__sidebar summary .group-link:hover .group-arrow { color: var(--sl-color-text-accent); }
-#starlight__sidebar summary .group-link[aria-current='page'] { background: color-mix(in srgb, var(--sl-color-accent-low) 65%, var(--sl-color-bg-sidebar)); box-shadow: inset 2px 0 var(--sl-color-text-accent); }
-#starlight__sidebar summary .group-link[aria-current='page'] .large { color: var(--sl-color-text-accent); }
 #starlight__sidebar summary .group-toggle { display: flex; flex: 0 0 auto; align-items: center; justify-content: flex-end; min-width: 2.25rem; min-height: 2.25rem; margin-inline-end: -.4rem; }
 #starlight__sidebar .top-level a:hover,
 #starlight__sidebar summary:hover { background: var(--sl-color-gray-6); color: var(--sl-color-white); }
-#starlight__sidebar .top-level a[aria-current='page'] {
-  background: color-mix(in srgb, var(--sl-color-accent-low) 65%, var(--sl-color-bg-sidebar));
-  color: var(--sl-color-text-accent);
-  box-shadow: inset 2px 0 var(--sl-color-text-accent);
-  font-weight: 600;
-}
 #starlight__sidebar :is(a, summary):focus-visible { outline-offset: 2px; }
 @media (max-width: 49.999rem) {
   #starlight__sidebar summary, #starlight__sidebar .top-level a,
@@ -482,11 +486,6 @@ h1 { font-size: var(--notebook-type-title); font-weight: 500; line-height: 1.25;
 #starlight__sidebar .sidebar-track .track-link:hover .large,
 #starlight__sidebar .sidebar-track .track-link:focus-visible .large { color: var(--sl-color-text-accent); }
 #starlight__sidebar .sidebar-track .track-link:hover .track-arrow { color: var(--sl-color-text-accent); }
-#starlight__sidebar .sidebar-track .track-link[aria-current='page'] {
-  background: color-mix(in srgb, var(--sl-color-accent-low) 65%, var(--sl-color-bg-sidebar));
-  box-shadow: inset 2px 0 var(--sl-color-text-accent);
-}
-#starlight__sidebar .sidebar-track .track-link[aria-current='page'] .large { color: var(--sl-color-text-accent); }
 #starlight__sidebar .track-count { font-size: .6875rem; font-variant-numeric: tabular-nums; padding: .1rem .4rem; }
 /* The track supplies the first level of indent, so its subjects sit closer in
    than the generic nested rule would place them and the notes underneath keep
@@ -505,6 +504,36 @@ h1 { font-size: var(--notebook-type-title); font-weight: 500; line-height: 1.25;
 @media (prefers-reduced-motion: reduce) {
   #starlight__sidebar .sidebar-track .track-link { transition: none; }
 }
+
+/* The current page, marked on the row rather than on the label inside it.
+   A track or subject label is itself the link to that page, and a heading link
+   has no inline padding of its own: a chip and rule drawn on the link put the
+   accent rule straight onto the first letter, and left it hanging at the
+   label's edge instead of on the row. `SidebarSublist` marks those rows with
+   `data-current`, so the cue covers the row the caret lives in and the label
+   keeps the row's own padding. Leaves — a note, Overview, All notes, About —
+   are their own row and already carry it. */
+#starlight__sidebar summary[data-current] {
+  background: var(--notebook-current-chip);
+  box-shadow: inset 3px 0 var(--notebook-current-rule);
+}
+#starlight__sidebar summary[data-current]:hover { background: var(--notebook-current-chip-hover); }
+/* Starlight's own rule for the current page paints that link with a solid accent
+   block and inverted text. Inside a marked row the cue belongs to the row, so
+   the label link stays transparent and takes the cue's label colour. */
+#starlight__sidebar summary[data-current] > a,
+#starlight__sidebar summary[data-current] > a:hover,
+#starlight__sidebar summary[data-current] > a:focus { background: transparent; color: var(--notebook-current-label); }
+#starlight__sidebar summary[data-current] .large,
+#starlight__sidebar summary[data-current] .track-arrow,
+#starlight__sidebar summary[data-current] .group-arrow { color: var(--notebook-current-label); }
+#starlight__sidebar .top-level a[aria-current='page']:not(.group-link):not(.track-link) {
+  background: var(--notebook-current-chip);
+  box-shadow: inset 3px 0 var(--notebook-current-rule);
+  color: var(--notebook-current-label);
+  font-weight: 600;
+}
+#starlight__sidebar .top-level a[aria-current='page']:not(.group-link):not(.track-link):hover { background: var(--notebook-current-chip-hover); }
 
 /* Tracks on the cover: one panel per line of the notebook, then the same
    subject cards grouped under the track they belong to. */
