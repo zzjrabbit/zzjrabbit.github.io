@@ -174,7 +174,8 @@ const options = [
     border: 1px solid transparent;
     border-radius: .55rem;
     color: var(--sl-color-gray-2);
-    font: 550 .8125rem/1.2 var(--sl-font);
+    /* Starlight's smallest text token, so the picker rides the site type scale. */
+    font: 550 var(--sl-text-xs)/1.2 var(--sl-font);
     transition: color .16s ease, background-color .16s ease, border-color .16s ease, box-shadow .16s ease;
     user-select: none;
   }

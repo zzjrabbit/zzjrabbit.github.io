@@ -241,6 +241,7 @@ NOTES_DIR=/path/to/notes scripts/build.sh
 最终界面由 **Starlight** 提供导航、响应式菜单、本页目录、主题切换与搜索；
 `src/pages/` 负责首页、完整索引、轨道页、学科页与笔记页面，`src/styles/notes.css` 负责「暖纸 / 赤陶 / 墨色」手札主题、正文衬线字体及数学环境样式。首页是尺寸固定的封面：每条轨道一个面板，每个学科一张卡片（含笔记数、最新一篇与日期），加上最多 5 条「最近新增」，其余笔记交给 `/notes.html`；深色模式使用暖墨底色，并支持键盘焦点与减少动态效果偏好。
 侧边栏的三层结构、组内顺序与「All notes」入口都由 `src/lib/notebook.mjs` 依笔记生成（笔记超过 8 篇的学科默认折叠，轨道组默认展开），`astro.config.mjs` 不再手写分类。
+全站字号由一个拨盘控制：**`--notebook-type-scale`**（当前 `1.0625`，约大 6%）。`notes.css` 的类型 token、少数一次性字号（标签、装饰与行间公式）以及 Starlight 自己的 `--sl-text-*`（页头、搜索、本页目录）都乘以这个值，正文因此从 18px 到 19.125px，行内数学与周围文字保持同一比例；侧边栏宽度 `--notebook-sidebar-width` 也跟着这个拨盘放大，否则最长的笔记标题会多挤出一行。想整体调大调小，只改这一个数字。
 **轨道标题与学科标题都是链接**，分别进入轨道页与学科页，右侧箭头才是展开/收起（`src/components/Sidebar.astro` 覆盖 Starlight 的 `Sidebar`，`SidebarSublist.astro` 是改写后的上游模板；点标题不会被误记为「收起该分组」）。轨道标题用独立的 `.track-link` 类，因此「每个学科页都能从侧边栏一次点到」这条既有的浏览器回归断言仍然只依赖 `.group-link`。旧的 Calepin 主题 CSS、导航脚本及 `site/index.typ` 不再控制最终网站外观。
 「当前页」标记画在**整行**上，而不是行内的标题上：轨道/学科标题本身就是进入该页的链接，`padding-inline` 为 0，标记若画在链接上，强调竖线就会压住标题首字。因此 `SidebarSublist.astro` 给这类行的 `<summary>` 加 `data-current`（轨道页自己的「No notes yet」行指向同一 URL，不再重复标记），`src/styles/notes.css` 用 `--notebook-current-*` 一组 token 统一着色（浅色模式用 `accent-high` 作为文字色，保证 4.5:1）。
 

@@ -20,8 +20,11 @@
      label is indented twice before it starts, and Starlight's default 18.75rem
      left only 191px of text: five of the seven note titles wrapped, two of them
      onto three lines. This width is applied to the left column alone; see the
-     sidebar rules below for why it is not --sl-sidebar-width. */
-  --notebook-sidebar-width: 22.5rem;
+     sidebar rules below for why it is not --sl-sidebar-width. It rides
+     --notebook-type-scale as well, so the labels keep that same fit — one line
+     per title — at the enlarged type size; only the fixed padding inside the
+     column is left behind by the dial. */
+  --notebook-sidebar-width: calc(22.5rem * var(--notebook-type-scale));
   --sl-color-hairline: var(--sl-color-gray-5);
   --notebook-card: #26211d;
   --notebook-shadow: 0 2px 4px #00000010, 0 12px 32px #00000016;
@@ -155,15 +158,15 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
   background: linear-gradient(125deg, var(--notebook-card), var(--sl-color-bg));
   box-shadow: var(--notebook-shadow);
 }
-.notes-eyebrow { display: flex; align-items: center; gap: .75rem; color: var(--sl-color-text-accent); font-size: .75rem; line-height: 1.6; font-weight: 600; letter-spacing: .1em; }
-.edition-mark { font: 2rem var(--notebook-serif); }
-.notes-lead { margin: 1.5rem 0; font: 500 clamp(2.25rem, 4.3vw, 3.75rem)/1.2 var(--notebook-serif); letter-spacing: -.04em; color: var(--sl-color-white); }
+.notes-eyebrow { display: flex; align-items: center; gap: .75rem; color: var(--sl-color-text-accent); font-size: calc(.75rem * var(--notebook-type-scale)); line-height: 1.6; font-weight: 600; letter-spacing: .1em; }
+.edition-mark { font: calc(2rem * var(--notebook-type-scale)) var(--notebook-serif); }
+.notes-lead { margin: 1.5rem 0; font: 500 calc(clamp(2.25rem, 4.3vw, 3.75rem) * var(--notebook-type-scale))/1.2 var(--notebook-serif); letter-spacing: -.04em; color: var(--sl-color-white); }
 .notes-lead > span { color: var(--sl-color-text-accent); }
-.notes-description { max-width: 35rem; color: var(--sl-color-gray-2); font-size: 1.0625rem; line-height: 1.85; text-wrap: pretty; }
+.notes-description { max-width: 35rem; color: var(--sl-color-gray-2); font-size: calc(1.0625rem * var(--notebook-type-scale)); line-height: 1.85; text-wrap: pretty; }
 .notes-meta, .notes-license { color: var(--sl-color-gray-2); font-size: .8rem; }
 .notes-license { margin-top: 2rem; }
 .note-tools { display: flex; flex-wrap: wrap; gap: .65rem; margin-block: 1.6rem; }
-.note-tools a { display: inline-flex; align-items: center; justify-content: space-between; gap: 1.2rem; min-height: 2.75rem; padding: .75rem 1.15rem; border: 1px solid var(--sl-color-hairline); border-radius: .5rem; background: var(--notebook-card); text-decoration: none; font: 600 .875rem/1.6 var(--sl-font); transition: background .18s, border-color .18s; }
+.note-tools a { display: inline-flex; align-items: center; justify-content: space-between; gap: 1.2rem; min-height: 2.75rem; padding: .75rem 1.15rem; border: 1px solid var(--sl-color-hairline); border-radius: .5rem; background: var(--notebook-card); text-decoration: none; font: 600 calc(.875rem * var(--notebook-type-scale))/1.6 var(--sl-font); transition: background .18s, border-color .18s; }
 .note-tools a:hover { border-color: var(--sl-color-text-accent); background: var(--sl-color-accent-low); }
 .note-tools .primary-link { background: var(--sl-color-accent-high); color: var(--sl-color-bg); border-color: var(--sl-color-accent-high); }
 .note-tools .primary-link:hover { background: var(--sl-color-white); border-color: var(--sl-color-white); }
@@ -178,9 +181,9 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
 .subject-index sup { font-size: .6rem; margin-left: .3rem; }
 .notes-section { margin-block: 2.5rem; }
 .section-heading { display: flex; align-items: baseline; gap: .8rem; margin-bottom: 1rem; }
-.section-number { color: var(--sl-color-text-accent); font: italic 1rem var(--notebook-serif); }
+.section-number { color: var(--sl-color-text-accent); font: italic calc(1rem * var(--notebook-type-scale)) var(--notebook-serif); }
 .section-heading h2 { margin: 0; font-size: 1.25rem; font-weight: 600; scroll-margin-top: 7rem; }
-.section-heading h2 > span { display: block; margin-top: .25rem; font: italic .8rem var(--notebook-serif); color: var(--sl-color-gray-2); }
+.section-heading h2 > span { display: block; margin-top: .25rem; font: italic calc(.8rem * var(--notebook-type-scale)) var(--notebook-serif); color: var(--sl-color-gray-2); }
 .section-count { margin-left: auto; white-space: nowrap; font-size: .7rem; color: var(--sl-color-gray-2); }
 .notes-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); gap: .85rem; }
 .note-card { position: relative; display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--sl-color-hairline); border-radius: .3rem; padding: 1.3rem; background: var(--notebook-card); transition: border-color .2s, transform .2s, box-shadow .2s; }
@@ -204,16 +207,16 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
 .about-page { color: var(--sl-color-text); }
 .about-intro { max-width: 43rem; padding: .5rem 0 2.5rem; border-bottom: 1px solid var(--sl-color-hairline); }
 .about-kicker { display: flex; align-items: center; gap: .65rem; margin: 0 0 1.35rem; color: var(--sl-color-text-accent); font-size: .65rem; font-weight: 600; letter-spacing: .14em; }
-.about-kicker > span { font: 2rem var(--notebook-serif); }
+.about-kicker > span { font: calc(2rem * var(--notebook-type-scale)) var(--notebook-serif); }
 .about-lead { margin: 0; color: var(--sl-color-white); font: 500 clamp(1.65rem, 4vw, 2.65rem)/1.45 var(--notebook-serif); }
 .about-page > section { display: grid; grid-template-columns: 2.5rem minmax(0, 1fr); gap: 1rem; padding-block: 2.5rem; border-bottom: 1px solid var(--sl-color-hairline); }
-.about-section-number { margin: .2rem 0 0; color: var(--sl-color-text-accent); font: italic 1rem var(--notebook-serif); }
+.about-section-number { margin: .2rem 0 0; color: var(--sl-color-text-accent); font: italic calc(1rem * var(--notebook-type-scale)) var(--notebook-serif); }
 .about-page h2 { margin: 0 0 1rem; color: var(--sl-color-white); font-size: 1.25rem; letter-spacing: 0; scroll-margin-top: 7rem; }
 .about-page section p:not(.about-section-number) { max-width: 39rem; margin: 0; color: var(--sl-color-gray-2); font: 1rem/1.9 var(--notebook-serif); }
 .about-page section p + p { margin-top: 1rem; }
 .about-principle { display: flex; align-items: flex-start; gap: 1rem; margin-block: 2.75rem; padding-inline-start: 3.5rem; color: var(--sl-color-text-accent); }
 .about-principle > span { padding-top: .25rem; }
-.about-principle p { margin: 0; color: var(--sl-color-white); font: italic 1.3rem/1.75 var(--notebook-serif); }
+.about-principle p { margin: 0; color: var(--sl-color-white); font: italic calc(1.3rem * var(--notebook-type-scale))/1.75 var(--notebook-serif); }
 .about-page .note-tools { margin-bottom: 0; }
 @media (max-width: 30rem) {
   .notes-eyebrow, .about-kicker { font-size: .55rem; letter-spacing: .07em; }
@@ -242,8 +245,9 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
    margins/padding wholesale (Typst uses these for fractions and matrices). */
 /* Scale only the root: preserve native math-depth sizing for scripts. */
 .typst-article math { font-family: 'STIX Two Math', 'Libertinus Math', 'Cambria Math', math; font-size: 1.15em; overflow-wrap: normal; margin: 0; }
-/* Keep display math at 23px (default root size), independent of body size. */
-.typst-article math[display='block'] { font-size: 1.4375rem; max-width: 100%; overflow-x: auto; }
+/* Display math keeps the root 23px, scaled by the same dial as the body so
+   equations stay a step above the prose around them. */
+.typst-article math[display='block'] { font-size: calc(1.4375rem * var(--notebook-type-scale)); max-width: 100%; overflow-x: auto; }
 .math-scroll { max-width: 100%; overflow-x: auto; margin-block: 1.3rem; padding: .9rem .6rem; scrollbar-width: thin; overscroll-behavior-x: contain; }
 .math-scroll > math[display='block'] { max-width: none; overflow: visible; }
 .math-scroll > math { width: max-content; min-width: 100%; }
@@ -294,7 +298,7 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
   display: inline-block;
   margin-top: .35rem;
   color: var(--sl-color-white);
-  font: 500 1rem/1.55 var(--notebook-serif);
+  font: 500 calc(1rem * var(--notebook-type-scale))/1.55 var(--notebook-serif);
   letter-spacing: 0;
   text-wrap: pretty;
   transition: color .18s;
@@ -310,33 +314,59 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
 }
 /* Shared editorial rhythm: readable secondary text and quiet, consistent surfaces. */
 /* A small type scale keeps navigation, prose and display headings in balance.
-   rem units retain browser font preferences; only headings scale with viewport. */
+   rem units retain browser font preferences; only headings scale with viewport.
+   --notebook-type-scale is the single dial for the whole notebook: 1.0625 is a
+   little over 6%, which lifts reading text from 18px to 19.125px and captions
+   from 13px to 13.8125px. Card and grid metrics stay as they are, so the gain
+   stays in the type rather than in the layout; the one column that does widen
+   is the sidebar below, and only so its note titles keep fitting on one line.
+   Sizes outside the tokens (one-off labels and ornaments) multiply their own
+   rem value by the same dial. */
 :root {
-  --notebook-type-caption: .8125rem;
-  --notebook-type-small: .875rem;
-  --notebook-type-body: 1rem;
-  --notebook-type-reading: 1.125rem;
-  --notebook-type-card: clamp(1.1875rem, 1.05rem + .35vw, 1.375rem);
-  --notebook-type-section: clamp(1.25rem, 1.1rem + .4vw, 1.5rem);
-  --notebook-type-title: clamp(1.875rem, 1.4rem + 1.5vw, 2.75rem);
+  --notebook-type-scale: 1.0625;
+  --notebook-type-caption: calc(.8125rem * var(--notebook-type-scale));
+  --notebook-type-small: calc(.875rem * var(--notebook-type-scale));
+  --notebook-type-body: calc(1rem * var(--notebook-type-scale));
+  --notebook-type-reading: calc(1.125rem * var(--notebook-type-scale));
+  --notebook-type-card: calc(clamp(1.1875rem, 1.05rem + .35vw, 1.375rem) * var(--notebook-type-scale));
+  --notebook-type-section: calc(clamp(1.25rem, 1.1rem + .4vw, 1.5rem) * var(--notebook-type-scale));
+  --notebook-type-title: calc(clamp(1.875rem, 1.4rem + 1.5vw, 2.75rem) * var(--notebook-type-scale));
+}
+/* Starlight sizes its own chrome — header, search, pagination and the
+   table of contents — from its text tokens rather than from the notebook scale
+   above, so those tokens ride the same dial. The table of contents then reads
+   at the sidebar labels' size instead of sitting a step smaller beside a
+   larger article. */
+:root {
+  --sl-text-2xs: calc(.75rem * var(--notebook-type-scale));
+  --sl-text-xs: calc(.8125rem * var(--notebook-type-scale));
+  --sl-text-sm: calc(.875rem * var(--notebook-type-scale));
+  --sl-text-base: calc(1rem * var(--notebook-type-scale));
+  --sl-text-lg: calc(1.125rem * var(--notebook-type-scale));
+  --sl-text-xl: calc(1.25rem * var(--notebook-type-scale));
+  --sl-text-2xl: calc(1.5rem * var(--notebook-type-scale));
+  --sl-text-3xl: calc(1.8125rem * var(--notebook-type-scale));
+  --sl-text-4xl: calc(2.1875rem * var(--notebook-type-scale));
+  --sl-text-5xl: calc(2.625rem * var(--notebook-type-scale));
+  --sl-text-6xl: calc(4rem * var(--notebook-type-scale));
 }
 body { -webkit-font-smoothing: antialiased; }
 h1 { font-size: var(--notebook-type-title); font-weight: 500; line-height: 1.25; letter-spacing: -.03em; text-wrap: balance; overflow-wrap: anywhere; }
 #starlight__sidebar summary .large { font-size: var(--notebook-type-caption); letter-spacing: .025em; }
 #starlight__sidebar .top-level a { font-size: var(--notebook-type-small); line-height: 1.65; }
 #starlight__sidebar .top-level > li > a { font-size: var(--notebook-type-small); }
-.notes-meta, .notes-license { font-size: .875rem; line-height: 1.8; }
-.notebook-stats { margin-top: 2rem; padding: 1.25rem 0 0; border-bottom: 0; font-size: .8125rem; gap: .85rem 1.5rem; }
-.notebook-stats strong { font-size: 1.75rem; font-variant-numeric: tabular-nums; }
-.subject-index { gap: .5rem; margin-block: 1.5rem 3.25rem; font-size: .875rem; }
+.notes-meta, .notes-license { font-size: var(--notebook-type-small); line-height: 1.8; }
+.notebook-stats { margin-top: 2rem; padding: 1.25rem 0 0; border-bottom: 0; font-size: var(--notebook-type-caption); gap: .85rem 1.5rem; }
+.notebook-stats strong { font-size: calc(1.75rem * var(--notebook-type-scale)); font-variant-numeric: tabular-nums; }
+.subject-index { gap: .5rem; margin-block: 1.5rem 3.25rem; font-size: var(--notebook-type-small); }
 .index-label { margin-right: .5rem; }
 .subject-index a { display: inline-flex; align-items: center; min-height: 2.75rem; padding: .45rem .8rem; border: 1px solid var(--sl-color-hairline); border-radius: 2rem; background: var(--notebook-card); }
 .subject-index a:hover { background: var(--sl-color-accent-low); border-color: var(--sl-color-text-accent); text-decoration: none; }
-.subject-index sup { font-size: .75rem; margin-left: .5rem; }
+.subject-index sup { font-size: calc(.75rem * var(--notebook-type-scale)); margin-left: .5rem; }
 .notes-section { margin-block: 3rem; }
 .section-heading { gap: .85rem; margin-bottom: 1.25rem; }
 .section-heading h2 { font-size: var(--notebook-type-section); font-weight: 600; line-height: 1.4; letter-spacing: -.015em; }
-.section-count { font-size: .8125rem; }
+.section-count { font-size: var(--notebook-type-caption); }
 .notes-grid { gap: 1.125rem; }
 .note-card { padding: 1.5rem; border-radius: var(--notebook-radius); box-shadow: var(--notebook-shadow); }
 .card-kicker { font-size: var(--notebook-type-caption); letter-spacing: .06em; line-height: 1.5; }
@@ -346,32 +376,32 @@ h1 { font-size: var(--notebook-type-title); font-weight: 500; line-height: 1.25;
 .card-footer > span:not(.card-read) { padding: .2rem .5rem; border-radius: .25rem; }
 .note-card:focus-within { outline: 2px solid var(--sl-color-text-accent); outline-offset: 3px; }
 .notebook-colophon { margin-top: 3.5rem; padding-block: 1.5rem .5rem; }
-.notebook-colophon p span { font-size: .875rem; line-height: 1.8; }
-.about-kicker { font-size: .75rem; line-height: 1.6; }
-.about-page section p:not(.about-section-number) { font-size: 1.125rem; }
+.notebook-colophon p span { font-size: var(--notebook-type-small); line-height: 1.8; }
+.about-kicker { font-size: calc(.75rem * var(--notebook-type-scale)); line-height: 1.6; }
+.about-page section p:not(.about-section-number) { font-size: var(--notebook-type-reading); }
 .about-page section p:not(.about-section-number) + p { margin-top: 1.25rem; }
 .about-principle { padding: 1.5rem 2rem; border-inline-start: 3px solid var(--sl-color-text-accent); border-radius: 0 var(--notebook-radius) var(--notebook-radius) 0; background: var(--notebook-card); }
 .typst-article { margin-top: 2.5rem; font-size: var(--notebook-type-reading); line-height: 1.85; }
 .typst-article :is(h2, h3, h4) { font-weight: 600; letter-spacing: -.015em; text-wrap: pretty; }
-.typst-article h2 { font-size: clamp(1.5rem, 1.25rem + .6vw, 1.875rem); line-height: 1.35; }
+.typst-article h2 { font-size: calc(clamp(1.5rem, 1.25rem + .6vw, 1.875rem) * var(--notebook-type-scale)); line-height: 1.35; }
 .typst-article h3 { font-size: var(--notebook-type-section); line-height: 1.45; }
 .typst-article h4 { font-size: var(--notebook-type-reading); line-height: 1.5; }
 .about-page h2 { font-size: var(--notebook-type-section); line-height: 1.4; }
-.about-lead { font-size: clamp(1.5rem, 1.15rem + 1.25vw, 2.25rem); line-height: 1.5; letter-spacing: -.02em; text-wrap: pretty; }
+.about-lead { font-size: calc(clamp(1.5rem, 1.15rem + 1.25vw, 2.25rem) * var(--notebook-type-scale)); line-height: 1.5; letter-spacing: -.02em; text-wrap: pretty; }
 .note-source pre { font-size: var(--notebook-type-small); line-height: 1.75; }
 .notebook-colophon p { font-size: var(--notebook-type-body); }
 .note-environment { padding: 1.25rem 1.5rem; border-radius: .5rem; }
-.note-environment-title { font-size: 1rem; line-height: 1.65; }
+.note-environment-title { font-size: var(--notebook-type-body); line-height: 1.65; }
 .note-source { border: 1px solid var(--sl-color-hairline); border-radius: .5rem; background: var(--notebook-card); }
-.note-source summary { padding: 1rem 1.25rem; font-size: .9375rem; }
+.note-source summary { padding: 1rem 1.25rem; font-size: calc(.9375rem * var(--notebook-type-scale)); }
 .note-source pre { margin: 0; border-top: 1px solid var(--sl-color-hairline); border-radius: 0 0 .5rem .5rem; }
-.pagination-links > a { font-size: .8125rem; color: var(--sl-color-gray-2); }
+.pagination-links > a { font-size: var(--notebook-type-caption); color: var(--sl-color-gray-2); }
 @media (max-width: 30rem) {
   .notes-intro { padding: 1.25rem; }
-  .notes-eyebrow, .about-kicker { font-size: .75rem; letter-spacing: .045em; }
-  .notes-lead { font-size: clamp(2rem, 8.5vw, 2.5rem); line-height: 1.2; letter-spacing: -.035em; }
-  #starlight__sidebar .top-level a { font-size: .9375rem; }
-  .notes-description { font-size: 1rem; }
+  .notes-eyebrow, .about-kicker { font-size: calc(.75rem * var(--notebook-type-scale)); letter-spacing: .045em; }
+  .notes-lead { font-size: calc(clamp(2rem, 8.5vw, 2.5rem) * var(--notebook-type-scale)); line-height: 1.2; letter-spacing: -.035em; }
+  #starlight__sidebar .top-level a { font-size: calc(.9375rem * var(--notebook-type-scale)); }
+  .notes-description { font-size: var(--notebook-type-body); }
   .note-tools { gap: .5rem; }
   .notes-intro .note-tools a { width: 100%; }
   .subject-index { margin-bottom: 2.5rem; }
@@ -409,7 +439,7 @@ h1 { font-size: var(--notebook-type-title); font-weight: 500; line-height: 1.25;
 .subject-more { margin-top: auto; padding-top: 1.1rem; color: var(--sl-color-text-accent); font-size: var(--notebook-type-caption); font-weight: 600; }
 .recent-list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--sl-color-hairline); }
 .recent-item { display: flex; flex-wrap: wrap; align-items: baseline; gap: .35rem 1rem; padding: .95rem 0; border-bottom: 1px solid var(--sl-color-hairline); }
-.recent-title { color: var(--sl-color-white); font: 500 1.0625rem/1.6 var(--notebook-serif); text-decoration: none; overflow-wrap: anywhere; }
+.recent-title { color: var(--sl-color-white); font: 500 calc(1.0625rem * var(--notebook-type-scale))/1.6 var(--notebook-serif); text-decoration: none; overflow-wrap: anywhere; }
 .recent-title:hover { color: var(--sl-color-text-accent); text-decoration: underline; text-underline-offset: .2em; }
 .recent-meta { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: .35rem .75rem; margin-left: auto; color: var(--sl-color-gray-2); font-size: var(--notebook-type-caption); }
 .recent-subject { color: var(--sl-color-gray-2); text-decoration: none; }
@@ -419,7 +449,7 @@ h1 { font-size: var(--notebook-type-title); font-weight: 500; line-height: 1.25;
 .notes-index, .subject-page { color: var(--sl-color-text); }
 .notes-index a, .subject-page a { color: var(--sl-color-text-accent); }
 .index-intro, .subject-intro { padding-bottom: 2rem; border-bottom: 1px solid var(--sl-color-hairline); }
-.index-lead, .subject-lead { max-width: 43rem; margin: 1.35rem 0 0; color: var(--sl-color-white); font: 500 clamp(1.5rem, 1.15rem + 1.25vw, 2.25rem)/1.45 var(--notebook-serif); letter-spacing: -.02em; text-wrap: pretty; }
+.index-lead, .subject-lead { max-width: 43rem; margin: 1.35rem 0 0; color: var(--sl-color-white); font: 500 calc(clamp(1.5rem, 1.15rem + 1.25vw, 2.25rem) * var(--notebook-type-scale))/1.45 var(--notebook-serif); letter-spacing: -.02em; text-wrap: pretty; }
 .index-intro .notes-meta, .subject-intro .notes-meta { margin-top: 1.1rem; }
 .note-rows { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--sl-color-hairline); }
 .note-row { padding: 1.35rem 0; border-bottom: 1px solid var(--sl-color-hairline); }
@@ -486,7 +516,7 @@ h1 { font-size: var(--notebook-type-title); font-weight: 500; line-height: 1.25;
 #starlight__sidebar .sidebar-track .track-link:hover .large,
 #starlight__sidebar .sidebar-track .track-link:focus-visible .large { color: var(--sl-color-text-accent); }
 #starlight__sidebar .sidebar-track .track-link:hover .track-arrow { color: var(--sl-color-text-accent); }
-#starlight__sidebar .track-count { font-size: .6875rem; font-variant-numeric: tabular-nums; padding: .1rem .4rem; }
+#starlight__sidebar .track-count { font-size: calc(.6875rem * var(--notebook-type-scale)); font-variant-numeric: tabular-nums; padding: .1rem .4rem; }
 /* The track supplies the first level of indent, so its subjects sit closer in
    than the generic nested rule would place them and the notes underneath keep
    the width they had before the tracks existed. */
@@ -564,20 +594,20 @@ h1 { font-size: var(--notebook-type-title); font-weight: 500; line-height: 1.25;
 
 /* The complete index: a track heading over its subject sections. */
 .track-section { margin-block: 3.5rem 0; }
-.section-heading h3 { margin: 0; font-size: 1.15rem; font-weight: 600; line-height: 1.45; letter-spacing: -.01em; scroll-margin-top: 7rem; overflow-wrap: anywhere; }
+.section-heading h3 { margin: 0; font-size: calc(1.15rem * var(--notebook-type-scale)); font-weight: 600; line-height: 1.45; letter-spacing: -.01em; scroll-margin-top: 7rem; overflow-wrap: anywhere; }
 .track-heading { align-items: baseline; margin-bottom: .25rem; padding-bottom: .5rem; border-bottom: 1px solid var(--sl-color-hairline); }
 .track-heading h2 { letter-spacing: .01em; }
 .track-heading .track-heading-blurb { flex-basis: 100%; margin: 0; color: var(--sl-color-gray-2); font-size: var(--notebook-type-small); line-height: 1.8; text-wrap: pretty; }
 .notes-index .track-section .notes-section { margin-block: 2rem; }
 .index-track { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem 1.1rem; }
 .index-track + .index-track { margin-top: .6rem; }
-.index-track-label { flex-basis: 100%; color: var(--sl-color-gray-3); font-size: .75rem; letter-spacing: .1em; text-transform: uppercase; }
+.index-track-label { flex-basis: 100%; color: var(--sl-color-gray-3); font-size: calc(.75rem * var(--notebook-type-scale)); letter-spacing: .1em; text-transform: uppercase; }
 
 /* A track's own page: its subjects as cards, its newest notes underneath. */
 .track-page { color: var(--sl-color-text); }
 .track-page a { color: var(--sl-color-text-accent); }
 .track-intro { padding-bottom: 2rem; border-bottom: 1px solid var(--sl-color-hairline); }
-.track-lead { max-width: 43rem; margin: 1.35rem 0 0; color: var(--sl-color-white); font: 500 clamp(1.5rem, 1.15rem + 1.25vw, 2.25rem)/1.45 var(--notebook-serif); letter-spacing: -.02em; text-wrap: pretty; }
+.track-lead { max-width: 43rem; margin: 1.35rem 0 0; color: var(--sl-color-white); font: 500 calc(clamp(1.5rem, 1.15rem + 1.25vw, 2.25rem) * var(--notebook-type-scale))/1.45 var(--notebook-serif); letter-spacing: -.02em; text-wrap: pretty; }
 .track-intro .notes-meta { margin-top: 1.1rem; }
 .track-page .subject-grid { margin-top: 2.5rem; }
 .track-neighbours { display: flex; flex-wrap: wrap; gap: .75rem 2.5rem; margin-block: 3rem 0; }
