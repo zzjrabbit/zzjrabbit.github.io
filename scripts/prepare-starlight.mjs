@@ -8,7 +8,9 @@ export function extractNote(html, file) {
   const main = $('main.calepin-website-main');
   if (main.length !== 1) throw new Error(`${file}: expected one Calepin article`);
   const title = main.find('h1').first().text();
-  if (!title) throw new Error(`${file}: missing title`);
+  // A page without a title is almost always a shared Typst library that Calepin
+  // published because site/calepin.toml did not exclude it, so name the fix.
+  if (!title) throw new Error(`${file}: missing title (a shared .typ library must be listed in site/calepin.toml [pages].exclude)`);
   // Keep the original fragment ID as existing bookmarks may point to it.
   main.find('h1').first().replaceWith($('<span>').attr('id', main.find('h1').first().attr('id') || 'original-title'));
   const headings = main.find('h2,h3').toArray().map((el, i) => {

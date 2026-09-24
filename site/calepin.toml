@@ -25,7 +25,16 @@ output-dir = "../_site"
 [pages]
 exclude = [
   "themes/**",      # 主题文件不是页面
-  "typ/shared.typ", # 笔记共用的模板函数，不是独立页面
+  # 每个集合根目录下的 shared.typ 都是被笔记引用的库（数学的模板函数、物理的
+  # CeTZ 绘图原语），没有标题也没有正文。漏掉哪一个，Calepin 都会把它编译成
+  # 没有 <h1> 的页面，prepare-starlight.mjs 随后以 “missing title” 中止构建
+  # ——typ/ 曾单独列出，物理加入后正是这样失败的，所以这里是约定而不是现状：
+  # models/ 今天还没有这个文件，仍然一并排除。tests/pages.test.mjs 检查这里是否
+  # 覆盖了 scripts/sync-notes.sh 同步的每个 Typst 集合根目录。
+  "typ/shared.typ",
+  "phys/shared.typ",
+  "physics/shared.typ",
+  "models/shared.typ",
 ]
 
 # 目录页右侧的“本页目录”

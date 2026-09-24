@@ -74,7 +74,7 @@ src/
 ├── components/Footer.astro # 版权页脚
 └── styles/notes.css       # 当前网站的配色、布局、正文与数学环境样式
 site/                      # Calepin 编译源目录，不是最终界面源目录
-├── calepin.toml           # 笔记编译、PDF/源码与搜索配置
+├── calepin.toml           # 笔记编译、页面排除（[pages].exclude）、PDF/源码与搜索配置
 ├── index.typ / 404.typ    # Calepin 中间页；不作为最终首页/404 发布
 ├── themes/site/           # 保留编译适配；旧 CSS/导航脚本不再控制最终界面
 │   ├── notes.typ          # 定理环境与 CeTZ 网页适配，PDF 保留原样
@@ -107,7 +107,7 @@ _site/                     # 唯一最终发布目录，不入库
 ```
 
 **为什么笔记要同步到 `site/` 根部**：笔记之间存在相对导入（`../shared.typ`）和
-根相对导入（`/typ/shared.typ`），只有保持仓库原始结构、并且把该结构放在 Typst 根目录下才能解析。
+根相对导入（`/typ/shared.typ`、`/phys/shared.typ`），只有保持仓库原始结构、并且把该结构放在 Typst 根目录下才能解析。
 Calepin 也不会跟随符号链接目录做页面扫描，所以必须真实拷贝，不能 `ln -s`。
 
 ## 本地开发
@@ -333,7 +333,8 @@ scripts/watch-notes.sh
 - 笔记的 `date` 与 `tags` 优先取自 Calepin 的页面索引（`site/.calepin/website-pages.json`，编译缓存），缺失时回退到解析已发布源码里的 `#show: tylenotes.with(...)`。两条路径都读不到时桥接器会打印警告，笔记被排在最后；`check-starlight.mjs` 会因缺少日期而失败，提示重跑完整构建。改动 `tylenotes` 的调用形式时请同步检查 `parseSiteMetadata`。
 - 网页适配当前针对 `noteworthy:0.4.0` / `theoretic:0.3.1` 与 `cetz:0.5.2`；升级笔记依赖时需同步检查 `site/themes/site/notes.typ`。
 - `src/components/Sidebar.astro` 覆盖了 Starlight 的 `Sidebar` 组件，`src/components/SidebarSublist.astro` 是照 **Starlight 0.42.0** 的 `SidebarSublist.astro` 改写的（多了两处：轨道/学科标题变链接、递归时传 `depth` 以便区分层级；另外拦掉标题点击被记成折叠的问题）。轨道用的是 Starlight 原生的嵌套分组（`items` 里再放 group），badge、状态记忆与移动抽屉都沿用上游行为。升级 Starlight 时需与上游该文件对照，并依赖 `npm run check`、`browser-check.mjs` 重新验证分组展开/收起与状态记忆。
-- 轨道是**两级的目录约定**：`typ/`、`phys/`（或别名 `physics/`）下的第二层目录才是学科，再深一层只是文件组织，不会产生新学科。新增集合时，`scripts/sync-notes.sh`、`scripts/watch-notes.sh`、`.gitignore` 里的目录清单需要同步加上（当前是 `typ/ phys/ physics/ models/ lean/`）。
+- 轨道是**两级的目录约定**：`typ/`、`phys/`（或别名 `physics/`）下的第二层目录才是学科，再深一层只是文件组织，不会产生新学科。新增集合时，`scripts/sync-notes.sh`、`scripts/watch-notes.sh`、`.gitignore` 里的目录清单需要同步加上（当前是 `typ/ phys/ physics/ models/ lean/`），并在 `site/calepin.toml` 的 `[pages].exclude` 里补上新根目录的 `shared.typ`（`tests/pages.test.mjs` 会强制这一条）。
+- **各集合根目录下的 `shared.typ` 是库，不是页面**：`typ/shared.typ`（`tylenotes` 与定理环境）、`phys/shared.typ`（CeTZ 绘图原语）都只被笔记引用，没有标题也没有正文。它们全部列在 `site/calepin.toml` 的 `[pages].exclude` 里；漏掉一个，Calepin 就会把它编译成没有 `<h1>` 的页面，`prepare-starlight.mjs` 随即以 `missing title` 中止构建（物理笔记首次纳入时正是这样失败的）。学科目录内部的文件不受影响。
 - **只有数学笔记有 Lean 伴生文件**：`typ/<学科>/x.typ` 映射到 `lean/<学科>/x.lean`，物理与建模笔记一律不显示 Lean 链接（`leanSourceFor` 只认 `typ/` 前缀，键不存在时也只返回 `null`）。若笔记仓库改用别的对应关系，需要同时改 `leanSourceFor` 与其测试。
 - 空轨道是有意发布的：`Physics` 在还没有笔记时也会出现在首页、索引、侧边栏与 `/tracks/physics.html`，只是计数为 0 并显示占位说明。若某条轨道长期不用，应改 `TRACK_REGISTRY` 而不是让它空着。
 - 同步器识别单行的 noteworthy / CeTZ 导入，并在其后注入适配导入；改用别名调用（如 `cetz.canvas`）或多行导入时，需要扩展适配机制。发布的源码展开区与 `.typ` 下载展示同步副本，原始可独立编译源码仍以 notes 仓库为准。
