@@ -44,11 +44,11 @@ jobs:
     outputs:
       changed: ${{ steps.revision.outputs.changed }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Fetch authoritative notes
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: zzjrabbit/notes
           path: .notes-source
@@ -71,7 +71,7 @@ jobs:
           fi
       - name: Set up Node.js
         if: steps.revision.outputs.changed == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
@@ -80,7 +80,7 @@ jobs:
         run: npm ci
       - name: Install Typst
         if: steps.revision.outputs.changed == 'true'
-        uses: typst-community/setup-typst@v4
+        uses: typst-community/setup-typst@v5
         with:
           typst-version: '0.15.1'
       - name: Install build dependencies
@@ -110,7 +110,7 @@ jobs:
           node scripts/check-theme-browser.mjs
       - name: Upload browser diagnostics
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: browser-screenshots
           path: .generated/screenshots
@@ -118,7 +118,7 @@ jobs:
           retention-days: 7
       - name: Upload Pages artifact
         if: steps.revision.outputs.changed == 'true'
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: _site
 
@@ -135,4 +135,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
