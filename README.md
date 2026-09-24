@@ -77,7 +77,8 @@ site/                      # Calepin 编译源目录，不是最终界面源目�
 ├── calepin.toml           # 笔记编译、页面排除（[pages].exclude）、PDF/源码与搜索配置
 ├── index.typ / 404.typ    # Calepin 中间页；不作为最终首页/404 发布
 ├── themes/site/           # 保留编译适配；旧 CSS/导航脚本不再控制最终界面
-│   ├── notes.typ          # 定理环境与 CeTZ 网页适配，PDF 保留原样
+│   ├── notes.typ          # 定理环境与 align 的网页适配，PDF 保留原样
+│   ├── cetz.typ           # CeTZ 画布适配：HTML 用 html.frame 保留矢量图，PDF 原样
 │   ├── js/math.js         # 由 Astro 页面导入的 MathML 滚动增强
 │   └── layouts/pdf.typ    # 让笔记自己的排版决定 PDF
 ├── typ/                   # ← 从 notes 仓库同步进来（数学），不入库
@@ -85,12 +86,12 @@ site/                      # Calepin 编译源目录，不是最终界面源目�
 ├── models/                # ← 同上（计算建模），不入库
 └── lean/                  # ← 同上，不入库
 scripts/
-├── sync-notes.sh          # 把笔记仓库的 typ/ phys/ models/ lean/ 同步到 site/ 并注入网页适配
+├── sync-notes.sh          # 同步笔记到 site/，注入定理适配并把 CeTZ 导入改写到 themes/site/cetz.typ
 ├── get-calepin.sh         # 安装固定版本的 Calepin（NixOS 会自动修 interpreter）
 ├── build.sh               # 同步 → _calepin/ → npm run build:web → _site/
 ├── prepare-starlight.mjs  # 桥接 Calepin 正文与静态资源，并检查轨道声明
 ├── check-starlight.mjs    # 构建后校验 URL、链接、轨道/学科页、MathML/SVG、PDF 与搜索产物
-├── check-rendering.sh     # 定理/证明、MathML 与 CeTZ SVG 静态抽查
+├── check-rendering.sh     # 定理/证明、MathML 与每篇 CeTZ 笔记的 SVG 抽查
 ├── browser-check.mjs     # Playwright 浏览器回归，不启动服务器
 ├── watch-notes.sh         # 轮询源笔记与网站源码，串行构建
 └── serve.sh               # 构建后用 Calepin 静态服务器预览 _site/
@@ -266,7 +267,7 @@ NOTES_DIR=/path/to/notes scripts/build.sh
 ```sh
 npm run check                        # Node 测试（轨道/栏目模型、桥接逻辑、发布门禁、同步），无需浏览器
 scripts/build.sh                     # 完整构建；build:web 已包含 check-starlight.mjs
-scripts/check-rendering.sh            # 对 _site/ 抽查定理/证明、MathML 与 CeTZ SVG
+scripts/check-rendering.sh            # 对 _site/ 抽查定理/证明、MathML，并逐篇核对 CeTZ 画布都有 SVG
 node scripts/browser-check.mjs       # 对已构建的 _site/ 运行浏览器回归
 # 找不到系统 Chromium 时指定可执行文件：
 CHROMIUM_BIN=/path/to/chromium node scripts/browser-check.mjs
@@ -284,8 +285,14 @@ CHROMIUM_PATH=/path/to/chromium node scripts/check-readability.mjs
 `check-readability.mjs` 的对比度抽样也补上了侧边栏当前页的标题（`#starlight__sidebar summary[data-current] .large`）：它是 `<span>` 而非 `<a>`，此前不在抽样范围内，浅色模式下 3.6:1 的文字因此无人过问。
 `check-starlight.mjs` 另外校验：每篇笔记在完整索引与其学科页各出现一次、首页每个学科一张卡片且不直接铺开笔记、
 每条轨道都有自己的页面与侧边栏分组、每篇笔记都有日期与所属轨道/学科、canonical/sitemap 与新增页面一致。
+`check-rendering.sh` 对每篇用到 CeTZ 的笔记（含 `phys/shared.typ` 这类共享库所在集合）比较源码里的 `canvas(` 调用数与页面上的 Typst SVG frame 数：
+少一个就说明有图在 HTML 导出里丢了——`#align(...)` 曾经就是这样整段吞掉 sling 的两张图，而构建日志只留一条无人看的 warning。
+`tests/cetz.test.mjs` 守住适配层的三条隐性约定：改写路径的文件名词干与同步器的 `cetz_shim` 一致、公共 API 用 glob 重新导出、
+适配层吐出的每个 `note-*` 类名都能在 `src/styles/notes.css` 里找到样式。
 本次轨道改版已完成 `npm run check`（19 项）、完整 `scripts/build.sh`、`scripts/check-rendering.sh`、浏览器回归、可读性与主题检查；
 撇号与自带字体这两轮改动之后，`npm run check` 为 20 项（新增「只标记上标撇号」一条），浏览器回归另加了撇号位置、字体加载与字样量度的断言；
+CeTZ 与 `align` 适配这一轮之后，`npm run check` 为 28 项，`scripts/check-rendering.sh` 覆盖两篇 CeTZ 笔记，
+两张图的 PDF 与改动前逐字节一致（同一份源码分别用旧、新适配层直接 `typst compile` 对比）；
 这仍不替代后续改动的重新检查，也不代表 GitHub Pages 云端部署已验证。
 
 人工回归还应覆盖全部笔记、目录锚点、键盘 Tab、源码展开/下载与 PDF 链接；
@@ -294,11 +301,24 @@ CHROMIUM_PATH=/path/to/chromium node scripts/check-readability.mjs
 
 ## 数学环境与日常更新
 
-`site/themes/site/notes.typ` 是网站专用适配层：同步时自动注入到笔记副本，**不修改 `NOTES_DIR` 中的原文**。
-定理、引理、命题保留绿色强调，定义/例题使用蓝色，注记使用赭色，证明使用低对比侧线。
-编号、交叉引用和 QED 仍由 theoretic 管理；PDF 分支使用原来的渲染器。
-CeTZ 画布仅在 HTML 分支包进 `html.frame`，以 SVG 保留，PDF 不受影响。
+网页适配层是 `site/themes/site/` 下的两个文件，都只在同步副本里生效，**不修改 `NOTES_DIR` 中的原文**：
+
+- `notes.typ` 由同步器注入到每篇笔记（`#import "/themes/site/notes.typ": *`）。
+  定理、引理、命题保留绿色强调，定义/例题使用蓝色，注记使用赭色，证明使用低对比侧线；
+  编号、交叉引用和 QED 仍由 theoretic 管理，PDF 分支使用原来的渲染器。
+  它还替换了 `align`：Typst 的 HTML 导出会**整段丢弃** `align` 里的内容（只在构建日志里留一条 warning），
+  而笔记正是用 `#align(center)[...]` 摆图，于是图会连框一起消失；适配后 HTML 分支输出
+  `.note-align-*` 元素，由 `src/styles/notes.css` 对齐，PDF 分支照旧调用原来的 `align`。
+- `cetz.typ` 是 CeTZ 适配层。`cetz.canvas` 返回的是一堆 `place` 出来的曲线，HTML 导出会把它整块丢掉，
+  所以同步器把副本里**每一个** CeTZ 导入的包路径都改写成 `/themes/site/cetz.typ`：裸导入、别名、
+  选择性导入、跨行导入、共享库里的导入都会命中，`cetz.canvas(...)` 与 `import cetz.draw: *` 也照常可用
+  （裸路径导入绑定的就是文件名词干 `cetz`，与包名一致）。适配层重新导出 CeTZ 的整套 API，只把 `canvas`
+  换成：PDF 原样返回，HTML 包进 `html.frame` 保留为可缩放的 SVG，块级画布再套一层
+  `.note-diagram-block` 居中——HTML 里没有 `align` 可用，而 SVG 是固定宽度的块，`text-align` 对它无效。
+  画布若给了 `baseline` 就保持行内，不套这层。CeTZ 版本由适配层固定，同步器在笔记请求别的版本时直接停下并指出要改哪一行。
+
 公式仍是可访问的原生 MathML；`src/styles/notes.css` 提供公式滚动、留白与数学环境样式，溢出检测和焦点增强由数学脚本负责。
+桥接器还会给每张图的内部 `id` 加上 `note-diagram-N-` 前缀：Typst 按字形哈希命名 symbol，同一页两张图画同一个字母时会产生重复 `id`。
 表格、代码等阅读样式也由 Astro/Starlight 与 `src/styles/notes.css` 统一管理。这些源码文件不会被笔记同步覆盖。
 
 以下脚本只是**可选的本地开发工具，不是日常发布的必要步骤**。直接在 notes 仓库使用编辑器新增 `.typ` 并推送即可。
@@ -324,7 +344,7 @@ scripts/watch-notes.sh
 ```
 
 只需构建一次时仍运行 `scripts/build.sh`。新文章的轨道、分类、首页、索引、学科页和导航继续自动生成。
-不要直接编辑同步目录；网站外观改 `src/`，**轨道归属用笔记仓库里的 `subject.json`（`track` 字段）与目录结构表达，栏目标签/顺序改 `src/lib/notebook.mjs` 的 `SUBJECT_REGISTRY` 或 `subject.json`**，站点配置改 `astro.config.mjs`，数学内容改源仓库，编译适配改 `site/themes/site/notes.typ`。
+不要直接编辑同步目录；网站外观改 `src/`，**轨道归属用笔记仓库里的 `subject.json`（`track` 字段）与目录结构表达，栏目标签/顺序改 `src/lib/notebook.mjs` 的 `SUBJECT_REGISTRY` 或 `subject.json`**，站点配置改 `astro.config.mjs`，数学内容改源仓库，编译适配改 `site/themes/site/`（定理环境与 `align` 在 `notes.typ`，画布在 `cetz.typ`）。
 同步需要 Perl（由 `nix develop` 提供），并使用内容校验恢复上轮已注入的副本，避免重复适配。
 
 ## 已知限制
@@ -332,12 +352,15 @@ scripts/watch-notes.sh
 - 构建可能提示 `docs` / `i18n` 内容集合为空：本站通过自定义 Astro 路由调用 `StarlightPage`，正文来自 `.generated/notes.json`，而不是这两个内容集合。这是当前架构下已知且无害的警告，不影响页面生成与搜索；不要将其他构建警告或错误也视为可忽略。
 - 笔记的 `date` 与 `tags` 优先取自 Calepin 的页面索引（`site/.calepin/website-pages.json`，编译缓存），缺失时回退到解析已发布源码里的 `#show: tylenotes.with(...)`。两条路径都读不到时桥接器会打印警告，笔记被排在最后；`check-starlight.mjs` 会因缺少日期而失败，提示重跑完整构建。改动 `tylenotes` 的调用形式时请同步检查 `parseSiteMetadata`。
 - 网页适配当前针对 `noteworthy:0.4.0` / `theoretic:0.3.1` 与 `cetz:0.5.2`；升级笔记依赖时需同步检查 `site/themes/site/notes.typ`。
+  CeTZ 那一个不再需要人工发现：适配层 `site/themes/site/cetz.typ` 固定版本，同步器发现笔记请求别的版本就直接停下并指出要改哪一行（副本一律按固定版本编译，否则会出现「源码写新版、实际按旧版编译」）。
 - `src/components/Sidebar.astro` 覆盖了 Starlight 的 `Sidebar` 组件，`src/components/SidebarSublist.astro` 是照 **Starlight 0.42.0** 的 `SidebarSublist.astro` 改写的（多了两处：轨道/学科标题变链接、递归时传 `depth` 以便区分层级；另外拦掉标题点击被记成折叠的问题）。轨道用的是 Starlight 原生的嵌套分组（`items` 里再放 group），badge、状态记忆与移动抽屉都沿用上游行为。升级 Starlight 时需与上游该文件对照，并依赖 `npm run check`、`browser-check.mjs` 重新验证分组展开/收起与状态记忆。
 - 轨道是**两级的目录约定**：`typ/`、`phys/`（或别名 `physics/`）下的第二层目录才是学科，再深一层只是文件组织，不会产生新学科。新增集合时，`scripts/sync-notes.sh`、`scripts/watch-notes.sh`、`.gitignore` 里的目录清单需要同步加上（当前是 `typ/ phys/ physics/ models/ lean/`），并在 `site/calepin.toml` 的 `[pages].exclude` 里补上新根目录的 `shared.typ`（`tests/pages.test.mjs` 会强制这一条）。
 - **各集合根目录下的 `shared.typ` 是库，不是页面**：`typ/shared.typ`（`tylenotes` 与定理环境）、`phys/shared.typ`（CeTZ 绘图原语）都只被笔记引用，没有标题也没有正文。它们全部列在 `site/calepin.toml` 的 `[pages].exclude` 里；漏掉一个，Calepin 就会把它编译成没有 `<h1>` 的页面，`prepare-starlight.mjs` 随即以 `missing title` 中止构建（物理笔记首次纳入时正是这样失败的）。学科目录内部的文件不受影响。
 - **只有数学笔记有 Lean 伴生文件**：`typ/<学科>/x.typ` 映射到 `lean/<学科>/x.lean`，物理与建模笔记一律不显示 Lean 链接（`leanSourceFor` 只认 `typ/` 前缀，键不存在时也只返回 `null`）。若笔记仓库改用别的对应关系，需要同时改 `leanSourceFor` 与其测试。
 - 空轨道是有意发布的：`Physics` 在还没有笔记时也会出现在首页、索引、侧边栏与 `/tracks/physics.html`，只是计数为 0 并显示占位说明。若某条轨道长期不用，应改 `TRACK_REGISTRY` 而不是让它空着。
-- 同步器识别单行的 noteworthy / CeTZ 导入，并在其后注入适配导入；改用别名调用（如 `cetz.canvas`）或多行导入时，需要扩展适配机制。发布的源码展开区与 `.typ` 下载展示同步副本，原始可独立编译源码仍以 notes 仓库为准。
+- 同步器只对 **noteworthy** 导入做「在导入行后注入适配导入」这一种改写，所以 noteworthy 的导入要写成单行；改成别名调用或多行写法就得扩展同步器。CeTZ 走的是**改写包路径**（`@preview/cetz:<版本>` → `/themes/site/cetz.typ`），裸导入、别名、选择性、跨行与共享库里的导入一次全覆盖，改写后若副本里还剩 `@preview/cetz:`，同步器会直接报错而不是让画布悄悄消失。发布的源码展开区与 `.typ` 下载展示同步副本，原始可独立编译源码仍以 notes 仓库为准。
+- Typst 的 HTML 导出会**丢弃**它不支持的元素内容：`align`、`place` 之类只在构建日志里留一条 `was ignored during HTML export`。适配层目前只替换了 `align` 与 CeTZ 画布；笔记若用到别的会被丢掉的写法，页面会缺内容而构建不报错。排查办法是单独编译一次并看日志：`typst compile --features html --root site --input calepin-target=html site/<笔记>.typ /tmp/x.html`。
+  由此带来两条 `align` 的边界：`align` 的 `dx`/`dy` 只作用于 PDF（HTML 没有对应的对齐轴），以及笔记里不能写 `#set align(...)`——set 规则要求元素函数，而适配层是普通函数，会编译报错（不会静默丢内容）。
 - **Calepin 很年轻**（当前 v0.0.57，单一维护者），所以版本在本仓库里是锁定的；
   源文件全是标准 Typst，将来换工具成本很低。
 - **上游的 nix flake 目前是坏的**（源码包缺 `calepin-docs/Cargo.toml`，`nix run` 直接失败），

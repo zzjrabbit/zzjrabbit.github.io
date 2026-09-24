@@ -269,6 +269,19 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
 @media print {
   .typst-article .note-diagram { color: #000; }
 }
+/* Typst's HTML export ignores `align` and drops everything inside it, so the
+   adapter (site/themes/site/notes.typ) emits these elements instead: aligned
+   figures and text then read on the web as they do in the PDF twin. */
+.typst-article .note-align-center { text-align: center; }
+.typst-article .note-align-start { text-align: start; }
+.typst-article .note-align-end { text-align: end; }
+/* A CeTZ canvas reaches the page as a fixed-width SVG frame (site/themes/site/
+   cetz.typ), which `text-align` cannot centre, so block-level canvases get this
+   centred flex row — it also keeps a wide diagram inside the text column. */
+.typst-article .note-diagram-block { display: flex; justify-content: center; margin-block: 1.25rem; }
+.typst-article .note-diagram-block.is-start { justify-content: flex-start; }
+.typst-article .note-diagram-block.is-end { justify-content: flex-end; }
+.typst-article .note-diagram-block > svg { max-width: 100%; height: auto; }
 .typst-article pre, .note-source pre { overflow-x: auto; padding: 1rem; background: var(--sl-color-bg-sidebar); }
 .typst-article table { display: block; max-width: 100%; overflow-x: auto; }
 /* MathML roots are inline or spaced by .math-scroll, not Markdown blocks.

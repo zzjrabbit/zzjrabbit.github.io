@@ -1,10 +1,36 @@
 // Website-only adapter. Imported after noteworthy in synchronized copies.
 // Keep theorem counters, references, options and QED handling in theoretic.
+//
+// CeTZ is adapted next to this file (themes/site/cetz.typ), because a canvas has
+// to be intercepted where it is called, whatever name it was imported under. The
+// synchronizer points every CeTZ import there; re-exporting `canvas` here keeps
+// `canvas(...)` working in notes that only import this adapter, and both names
+// resolve to the same function, so a note can never frame its canvas twice.
 #import "@preview/noteworthy:0.4.0" as original
 #import "@preview/theoretic:0.3.1" as theoretic
-#import "@preview/cetz:0.5.2" as cetz
+#import "/themes/site/cetz.typ": canvas, web
 
-#let web = sys.inputs.at("calepin-target", default: "") == "html"
+// Typst's HTML export ignores `align` and drops everything inside it, warning
+// only in the build log. `#align(center)[...]` is how notes place figures, so a
+// diagram wrapped that way reaches the web page as nothing at all. Paged output
+// keeps the original `align`; HTML gets the same alignment as an element that
+// `src/styles/notes.css` styles.
+//
+// The signature is Typst's two call arguments — `dx`/`dy` are element fields of
+// `align`, not call arguments, and HTML flow has a horizontal axis only, so they
+// stay paged. A note must not use `#set align(...)` either: a set rule needs an
+// element function and this replacement is an ordinary function, which fails
+// loudly at compile time rather than dropping content.
+#let _align = align
+#let align(alignment, body) = {
+  if not web { return _align(alignment, body) }
+  let edge = alignment.x
+  let class = if edge == center { "note-align-center" }
+    else if edge == end or edge == right { "note-align-end" }
+    else { "note-align-start" }
+  html.elem("div", attrs: (class: class), body)
+}
+
 #let render(it) = {
   if web {
     html.elem("section", attrs: (class: "note-environment note-" + it.variant), {
@@ -35,9 +61,3 @@
 #let claim = adapt(original.claim)
 #let proof = adapt(original.proof)
 #let solution = adapt(original.solution)
-
-// Preserve vector diagrams instead of silently dropping the CeTZ canvas in HTML.
-#let canvas(..args) = {
-  if web { html.frame(cetz.canvas(..args)) }
-  else { cetz.canvas(..args) }
-}

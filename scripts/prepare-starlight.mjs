@@ -37,6 +37,25 @@ export function extractNote(html, file) {
       .filter((__, mo) => primes.test($(mo).text()))
       .addClass('math-prime');
   });
+  // A Typst frame names its glyph symbols after a hash of the glyph, so two
+  // diagrams on one page define the same `id` twice and the second diagram's
+  // `<use>` resolves into the first one's `<symbol>`. Namespace each diagram's
+  // ids, and the `#fragment`/`url(#fragment)` references inside that diagram
+  // with them, so every page keeps unique ids (scripts/validate-release.mjs).
+  main.find('svg').each((index, svg) => {
+    const prefix = `note-diagram-${index + 1}-`;
+    $(svg).find('*').addBack().each((_, el) => {
+      const node = $(el);
+      for (const [name, value] of Object.entries(el.attribs || {})) {
+        if (name === 'id') node.attr(name, prefix + value);
+        else if ((name === 'href' || name.endsWith(':href')) && value.startsWith('#')) {
+          node.attr(name, `#${prefix}${value.slice(1)}`);
+        } else if (value.includes('url(#')) {
+          node.attr(name, value.replaceAll('url(#', `url(#${prefix}`));
+        }
+      }
+    });
+  });
   // Typst diagrams use literal black for glyphs and outlines. Let that ink
   // inherit the article theme; preserve semantic colors, transparent paint,
   // and mask luminance. No inversion filter (which would distort colors).

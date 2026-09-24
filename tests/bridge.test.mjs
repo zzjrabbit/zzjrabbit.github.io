@@ -46,15 +46,37 @@ test('diagram ink follows the theme without inverting semantic colors or masks',
   assert.ok($('svg').hasClass('note-diagram'));
   assert.ok($('svg').hasClass('not-content'));
   assert.equal($('use').attr('fill'), 'currentColor');
-  assert.equal($('use').attr('href'), '#glyph');
+  // Diagrams are namespaced per page, see the test below.
+  assert.equal($('use').attr('href'), '#note-diagram-1-glyph');
   assert.equal($('path[stroke="currentColor"]').attr('fill'), 'none');
   assert.equal($('text').attr('fill'), 'currentColor');
   assert.equal($('path[fill="#ff0000"]').attr('stroke'), '#0055ff');
   assert.equal($('mask path').attr('fill'), '#000000');
   assert.equal($('path[fill="#ffffff"]').length, 1);
   assert.equal($('path[fill="currentColor"]').length, 1);
-  assert.equal($('#glyph').attr('fill'), undefined);
+  assert.equal($('#note-diagram-1-glyph').attr('fill'), undefined);
   assert.equal($('img').attr('src'), 'photo.png');
+});
+
+test('every diagram on a page keeps unique ids for its own symbols', () => {
+  // Typst names a glyph symbol after a hash of the glyph, so two diagrams that
+  // draw the same letter define the same id. The second diagram's <use> would
+  // resolve into the first one's <symbol>, and the page would carry duplicate ids.
+  const note = extractNote(`<main class="calepin-website-main"><h1>Two diagrams</h1>
+    <svg viewBox="0 0 10 10"><defs><symbol id="g1A"><path d="M0 0h1"/></symbol></defs>
+      <use xlink:href="#g1A"/><g clip-path="url(#g1A)"/></svg>
+    <p>Between them</p>
+    <svg viewBox="0 0 10 10"><defs><symbol id="g1A"><path d="M0 0h1"/></symbol></defs>
+      <use xlink:href="#g1A"/><path fill="url(#g1A)"/></svg>
+  </main>`, 'two.html');
+  const $ = load(note.html);
+  assert.deepEqual($('svg [id]').toArray().map(el => $(el).attr('id')), ['note-diagram-1-g1A', 'note-diagram-2-g1A']);
+  // xlink:href is namespace-adjusted to `href` while parsing and written back as
+  // `xlink:href`, so compare the serialized page, which is what ships.
+  assert.deepEqual([...note.html.matchAll(/<use [^>]*href="#([^"]+)"/g)].map(match => match[1]),
+    ['note-diagram-1-g1A', 'note-diagram-2-g1A']);
+  assert.equal($('svg').eq(0).find('g').attr('clip-path'), 'url(#note-diagram-1-g1A)');
+  assert.equal($('svg').eq(1).find('path[fill]').attr('fill'), 'url(#note-diagram-2-g1A)');
 });
 
 test('marks prime superscripts, and only prime superscripts, for the stylesheet', () => {
