@@ -57,6 +57,24 @@ test('diagram ink follows the theme without inverting semantic colors or masks',
   assert.equal($('img').attr('src'), 'photo.png');
 });
 
+test('marks prime superscripts, and only prime superscripts, for the stylesheet', () => {
+  const note = extractNote(`<main class="calepin-website-main"><h1>Primes</h1>
+    <p>Let <math><msup><mi>f</mi><mo>\u2032</mo></msup></math> and <math><msup><mi>c</mi><mo>\u2032\u2032</mo></msup></math>.</p>
+    <p><math><msubsup><mi>f</mi><mi>x</mi><mo>\u2032</mo></msubsup></math> and <math><msup><mi>f</mi><mo>\u2032</mo></msup><msub><mi>x</mi><mn>0</mn></msub></math></p>
+    <math display="block"><msup><mi>H</mi><mo>\u2032</mo></msup><mrow><mo>(</mo><mi>a</mi><mo>)</mo></mrow></math>
+    <p><math><msup><mi>f</mi><mn>2</mn></msup><msup><mi>f</mi><mo>+</mo></msup><mo>\u2032</mo><mi>x</mi></math></p>
+  </main>`, 'typ/primes.html');
+  const $ = load(note.html);
+  assert.equal($('.math-prime').length, 5);
+  assert.deepEqual($('.math-prime').toArray().map(el => $(el).text()), ['\u2032', '\u2032\u2032', '\u2032', '\u2032', '\u2032']);
+  assert.ok($('msubsup > .math-prime').length, 'a subscripted base still marks its prime');
+  assert.equal($('msub > .math-prime').length, 0, 'subscripts stay where they are');
+  assert.equal($('msup > mn.math-prime').length, 0, 'exponents are not primes');
+  assert.equal($('msup > mo.math-prime:not(:last-child)').length, 0, 'a plus-sign superscript is untouched');
+  assert.equal($('mo.math-prime').not('msup > *, msubsup > *').length, 0, 'a prime that is not an attachment keeps its own position');
+  assert.equal($('math').filter((_, el) => !$(el).hasClass('not-content')).length, 0);
+});
+
 test('fails explicitly on missing article or heading', () => {
   assert.throws(() => extractNote('<main></main>', 'bad.html'), /one Calepin article/);
   assert.throws(() => extractNote('<main class="calepin-website-main"></main>', 'bad.html'), /missing title/);

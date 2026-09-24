@@ -22,6 +22,19 @@ export function extractNote(html, file) {
   // Starlight typography for the surrounding article. Do this at build time
   // so native math remains correct before JS runs and with JS disabled.
   main.find('math').addClass('not-content');
+  // A prime is an attachment, but MathML only offers an ordinary superscript:
+  // the browser raises it by the superscript shift while math fonts already
+  // draw U+2032 high inside its own em box. `f'` therefore rendered with the
+  // apostrophe above the `f`, clear of its ascender. Mark prime superscripts
+  // so the stylesheet can lower them to the superscript position; the mark is
+  // added at build time, so the correction also holds with JavaScript disabled.
+  const primes = /^[\u2032-\u2037]+$/;
+  main.find('msup, msubsup').each((_, el) => {
+    const superscript = $(el).children().last();
+    (superscript.is('mo') ? superscript : superscript.find('mo'))
+      .filter((__, mo) => primes.test($(mo).text()))
+      .addClass('math-prime');
+  });
   // Typst diagrams use literal black for glyphs and outlines. Let that ink
   // inherit the article theme; preserve semantic colors, transparent paint,
   // and mask luminance. No inversion filter (which would distort colors).

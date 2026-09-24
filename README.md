@@ -94,7 +94,7 @@ scripts/
 ├── browser-check.mjs     # Playwright 浏览器回归，不启动服务器
 ├── watch-notes.sh         # 轮询源笔记与网站源码，串行构建
 └── serve.sh               # 构建后用 Calepin 静态服务器预览 _site/
-public/                    # 手写 favicon/robots，桥接时合并到 .generated/public
+public/                    # 手写 favicon/robots 与自带的衬线字体（fonts/，含 OFL 许可），桥接时合并到 .generated/public
 DEPLOYMENT.md              # 首次上线确认、验收和回退清单
 scripts/validate-release.mjs # 全站资源、锚点与 canonical/sitemap 发布检查
 tests/                     # npm run check 执行的 Node 测试（同步测试需 bash/rsync/perl）
@@ -248,6 +248,14 @@ NOTES_DIR=/path/to/notes scripts/build.sh
 数学继续使用 Typst 原生 MathML，**不重写公式内容、不引入 MathJax、不改笔记 PDF**。
 `site/themes/site/js/math.js` 作为保留的数学增强，由 Astro 笔记页面导入；它为行间公式与超宽行内矩阵添加滚动容器，
 只有确实溢出的容器才进入 Tab 顺序，字体加载或窗口变化后重新检测。禁用 JavaScript 时保留基础行间公式滚动样式。
+**正文与公式都由站点自带的衬线字体渲染**：`public/fonts/` 存放 STIX Two Text（正文四款字重/斜体）与 STIX Two Math（数学），
+由 `src/styles/notes.css` 用 `@font-face` 声明，并排在所有字体栈首位（SIL OFL 1.1，见 `public/fonts/OFL.txt`）。
+此前字体栈里只有「读者机器上可能装了的」数学字体，落到系统默认后，同一篇公式在不同平台会换形——Linux 上正文字母来自中文衬线、
+运算符与撇号来自 Liberation Serif，与数学字母混在一行里。字体文件、`@font-face` 与「撇号不再飞到字母上方」的断言都在回归里把关。
+**撇号位置**由构建期修正：MathML 只有普通上标，浏览器按上标位移抬升撇号，而数学字体本身已把 U+2032 画在 em 框高处，
+`f'` 因此把撇号抬到了字母顶端之上。`scripts/prepare-starlight.mjs` 在构建时给上标位置的撇号加 `math-prime` 类，
+`src/styles/notes.css` 把它降回笔记自家 Typst 渲染所用的位置（40pt 参考里撇号墨迹下沿 0.444em、x 高度 0.450em，即贴着 x 高度线）。
+这一步在构建期完成、只用 CSS，所以在 JavaScript 运行前和禁用 JavaScript 时同样有效；偏移量以撇号自身字号为单位，任何字号与视口都一致。
 笔记顶部提供 **PDF 阅读/下载** 与 **Typst 源码下载**链接，正文下方用原生 `<details>` 展开源码；
 不再使用旧主题的 HTML / Source / PDF 三向选择器。源码展示与下载来自同步编译副本，权威原文仍在 notes 仓库。
 
@@ -269,11 +277,15 @@ CHROMIUM_PATH=/path/to/chromium node scripts/check-readability.mjs
 它拦截 `https://notes.test/` 的**虚拟请求**，直接返回本地 `_site/` 文件，**不启动 HTTP 服务器**，也不替换已有预览服务。
 脚本覆盖五种视口宽度（320/390/768/1024/1440px）、首页封面、完整索引、每条轨道页、每个学科页、代表性长文、移动菜单/Escape、浅深色、搜索及页面错误，
 并断言侧边栏**每页只有一个「当前页」标记**、标记所在的整行与其标题之间留出至少 8px（避免强调竖线压住标题）；
+撇号位置按公式自身的 em 逐处断言：上标撇号的墨迹不得高过它所属字母的墨迹（曾经的 +0.087em 就是「撇号飞在字母上方」），也不得沉进字母内部，
+并进一步断言自带的 STIX Two Text / STIX Two Math 确实被加载、正文与数学的字体栈都以它们开头，且数学字样的量度与平台回退字体不同
+——字体文件漏发或路径写错会在云端构建时就失败，而不是在各平台悄悄换字体。这一组断言同样在没有 JavaScript 的页面上跑一遍。
 截图写入 `.generated/screenshots/`（下次桥接会清理）。
 `check-readability.mjs` 的对比度抽样也补上了侧边栏当前页的标题（`#starlight__sidebar summary[data-current] .large`）：它是 `<span>` 而非 `<a>`，此前不在抽样范围内，浅色模式下 3.6:1 的文字因此无人过问。
 `check-starlight.mjs` 另外校验：每篇笔记在完整索引与其学科页各出现一次、首页每个学科一张卡片且不直接铺开笔记、
 每条轨道都有自己的页面与侧边栏分组、每篇笔记都有日期与所属轨道/学科、canonical/sitemap 与新增页面一致。
 本次轨道改版已完成 `npm run check`（19 项）、完整 `scripts/build.sh`、`scripts/check-rendering.sh`、浏览器回归、可读性与主题检查；
+撇号与自带字体这两轮改动之后，`npm run check` 为 20 项（新增「只标记上标撇号」一条），浏览器回归另加了撇号位置、字体加载与字样量度的断言；
 这仍不替代后续改动的重新检查，也不代表 GitHub Pages 云端部署已验证。
 
 人工回归还应覆盖全部笔记、目录锚点、键盘 Tab、源码展开/下载与 PDF 链接；

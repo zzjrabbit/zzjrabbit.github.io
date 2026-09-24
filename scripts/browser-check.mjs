@@ -12,6 +12,19 @@ const trackFiles = library.tracks.map(track => track.href.slice(1));
 // CI installs Playwright's pinned Chromium; local Nix users can use the system browser.
 const executablePath = process.env.CHROMIUM_BIN || (process.env.CI ? undefined : execFileSync('sh', ['-c', 'command -v chromium || command -v chromium-browser'], { encoding: 'utf8' }).trim());
 const browser = await chromium.launch({ executablePath, headless: true });
+// How far each prime clears the letter it belongs to, in ems of its formula:
+// heights are measured above the base's own baseline, so a positive clearance
+// means the apostrophe floats above the letter's ink — the bug this guards.
+const primeClearances = page => page.locator('msup > .math-prime, msubsup > .math-prime').evaluateAll(nodes => nodes.map(node => {
+  const base = node.parentElement.firstElementChild;
+  const em = parseFloat(getComputedStyle(node.closest('math')).fontSize);
+  const baseBox = base.getBoundingClientRect(), primeBox = node.getBoundingClientRect();
+  return {
+    base: base.textContent,
+    inkBottom: +((baseBox.bottom - primeBox.bottom) / em).toFixed(3),
+    clearance: +(((baseBox.bottom - primeBox.bottom) - (baseBox.bottom - baseBox.top)) / em).toFixed(3),
+  };
+}));
 const errors = [];
 let context;
 let page;
@@ -46,6 +59,47 @@ try {
     }
   }
   await page.setViewportSize({ width: 390, height: 844 });
+  // A prime is an attachment, but MathML only has ordinary superscripts:
+  // Chromium raised it by the superscript shift while the math font already
+  // draws U+2032 high in its own em box, so `f'` showed the apostrophe above the
+  // letter, clear of its ascender. The bridge marks prime superscripts and the
+  // stylesheet lowers them to the x-height line the notes' own Typst rendering
+  // uses. Checked in em, so it holds at every type size and viewport.
+  for (const file of ['typ/lie/cover_linear.html', 'models/cafeteria/note.html']) {
+    await page.goto(`https://notes.test/${file}`);
+    await page.evaluate(() => document.fonts.ready);
+    const primes = await primeClearances(page);
+    assert.ok(primes.length, `${file} still publishes primes in MathML`);
+    for (const prime of primes) {
+      assert.ok(prime.clearance <= 0.01, `the prime in ${prime.base}' floats above the letter (${prime.clearance}em): ${file}`);
+      assert.ok(prime.clearance >= -0.3, `the prime in ${prime.base}' sank into the letter (${prime.clearance}em): ${file}`);
+    }
+  }
+  // Cross-platform consistency: the serif prose and math faces are self-hosted,
+  // so a missing or mis-served font file has to fail here instead of silently
+  // becoming whatever font each reader's system happens to call serif or math.
+  await page.goto('https://notes.test/typ/lie/cover_linear.html');
+  await page.evaluate(() => document.fonts.ready);
+  const faces = await page.evaluate(() => ({
+    loaded: [...document.fonts].filter(face => face.status === 'loaded').map(face => `${face.family} ${face.weight} ${face.style}`),
+    prose: getComputedStyle(document.querySelector('.typst-article')).fontFamily,
+    math: getComputedStyle(document.querySelector('.typst-article math')).fontFamily,
+  }));
+  for (const face of ['STIX Two Text 400 normal', 'STIX Two Math 400 normal']) {
+    assert.ok(faces.loaded.includes(face), `${face} is delivered and loaded: ${faces.loaded.join(', ')}`);
+  }
+  assert.match(faces.prose, /^['"]?STIX Two Text/, 'prose is set in the bundled serif');
+  assert.match(faces.math, /^['"]?STIX Two Math/, 'mathematics is set in the bundled serif');
+  // Metrics of a math specimen, against the platform's own fallback: identical
+  // widths would mean the bundled face never rendered.
+  const specimen = await page.evaluate(() => {
+    const canvas = document.createElement('canvas').getContext('2d');
+    const width = font => { canvas.font = `100px ${font}`; return canvas.measureText('\u{1D453}\u{1D465}\u{1D466}\u2032').width; };
+    return { bundled: width('"STIX Two Math"'), fallback: width('sans-serif') };
+  });
+  assert.ok(Math.abs(specimen.bundled - specimen.fallback) > specimen.fallback * 0.05,
+    `the bundled math face really renders (${specimen.bundled.toFixed(1)}px against ${specimen.fallback.toFixed(1)}px)`);
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('https://notes.test/about.html');
   assert.equal(await page.locator('#starlight__sidebar a[aria-current="page"]').textContent(), 'About');
   await page.screenshot({ path: '.generated/screenshots/about-mobile.png', fullPage: true });
@@ -57,13 +111,20 @@ try {
   const staticPage = await noJS.newPage();
   await staticPage.route('https://notes.test/**', async route => {
     const file = decodeURIComponent(new URL(route.request().url()).pathname);
+    const types = { '.css': 'text/css', '.woff2': 'font/woff2' };
     await route.fulfill({ body: await readFile(path.join('_site', file)),
-      contentType: file.endsWith('.css') ? 'text/css' : 'text/html' });
+      contentType: types[path.extname(file)] || 'text/html' });
   });
   await staticPage.goto('https://notes.test/typ/lie/cover_linear.html');
   assert.ok(await staticPage.locator('math').count());
   assert.equal(await staticPage.locator('math *').evaluateAll(nodes =>
     nodes.some(node => parseFloat(getComputedStyle(node).marginTop) !== 0)), false);
+  // The prime correction is build-time CSS, so it must hold with no script at all.
+  const staticPrimes = await primeClearances(staticPage);
+  assert.ok(staticPrimes.length, 'primes remain marked without JavaScript');
+  for (const prime of staticPrimes) {
+    assert.ok(prime.clearance <= 0.01, `without JavaScript the prime in ${prime.base}' floats above the letter (${prime.clearance}em)`);
+  }
   await noJS.close();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('https://notes.test/');

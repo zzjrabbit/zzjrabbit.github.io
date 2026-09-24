@@ -1,3 +1,34 @@
+/* Serif text and mathematics are self-hosted, so the same faces render the
+   notes on every platform: the stacks below name fonts a reader may not have,
+   and the browser then falls back family by family — on a bare Linux box Latin
+   prose came from a CJK serif while formulas mixed FreeSerif letters with
+   Liberation Serif primes. STIX Two Text and STIX Two Math share one design, so
+   prose and equations stay a serif pair. SIL OFL 1.1, see public/fonts/OFL.txt. */
+@font-face {
+  font-family: 'STIX Two Text';
+  src: url('/fonts/stix-two-text-latin-400-normal.woff2') format('woff2');
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'STIX Two Text';
+  src: url('/fonts/stix-two-text-latin-400-italic.woff2') format('woff2');
+  font-weight: 400; font-style: italic; font-display: swap;
+}
+@font-face {
+  font-family: 'STIX Two Text';
+  src: url('/fonts/stix-two-text-latin-700-normal.woff2') format('woff2');
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'STIX Two Text';
+  src: url('/fonts/stix-two-text-latin-700-italic.woff2') format('woff2');
+  font-weight: 700; font-style: italic; font-display: swap;
+}
+@font-face {
+  font-family: 'STIX Two Math';
+  src: url('/fonts/stix-two-math.woff2') format('woff2');
+  font-weight: 400; font-style: normal; font-display: swap;
+}
 :root {
   --sl-color-accent-low: #412a24;
   --sl-color-accent: #d38b70;
@@ -14,7 +45,7 @@
   --sl-color-bg-nav: #24201c;
   --sl-color-bg-sidebar: #24201c;
   --sl-font: 'Inter', 'Noto Sans CJK SC', 'PingFang SC', system-ui, sans-serif;
-  --notebook-serif: 'Charter', 'Noto Serif CJK SC', 'Songti SC', Georgia, serif;
+  --notebook-serif: 'STIX Two Text', 'Charter', 'Noto Serif CJK SC', 'Songti SC', Georgia, serif;
   --sl-content-width: 52rem;
   /* The sidebar carries three levels — track, subject, note — so every note
      label is indented twice before it starts, and Starlight's default 18.75rem
@@ -230,7 +261,7 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
   .note-card, .note-tools a { transition: none; }
   .note-card:focus-within, .note-card:hover { transform: none; }
 }
-.typst-article { font-family: 'Charter', 'Noto Serif CJK SC', 'Songti SC', Georgia, serif; font-size: 1.125rem; line-height: 1.9; overflow-wrap: anywhere; }
+.typst-article { font-family: var(--notebook-serif); font-size: 1.125rem; line-height: 1.9; overflow-wrap: anywhere; }
 .typst-article :is(h2,h3,h4,.note-environment-title) { font-family: var(--sl-font); }
 .typst-article :is(img,svg) { max-width: 100%; height: auto; }
 /* Inherit theme ink even for SVG shapes with the default (implicit black) fill. */
@@ -244,7 +275,17 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
    Descendants opt out via not-content in the HTML bridge; do not reset their
    margins/padding wholesale (Typst uses these for fractions and matrices). */
 /* Scale only the root: preserve native math-depth sizing for scripts. */
-.typst-article math { font-family: 'STIX Two Math', 'Libertinus Math', 'Cambria Math', math; font-size: 1.15em; overflow-wrap: normal; margin: 0; }
+.typst-article math { font-family: 'STIX Two Math', 'Libertinus Math', 'Cambria Math', 'Noto Serif CJK SC', 'Songti SC', math; font-size: 1.15em; overflow-wrap: normal; margin: 0; }
+/* A prime is an attachment, but MathML only has ordinary superscripts: the
+   browser raises the prime by the superscript shift while STIX Two Math already
+   draws U+2032 high in its own em box, so `f'` put the apostrophe above the `f`,
+   clear of its ascender. Lower prime superscripts to the position the notes'
+   own Typst rendering uses — the prime's ink starts at the x-height line (in
+   the 40pt reference, ink bottom 0.444em against x-height 0.450em), which this
+   offset reproduces here. `em` is the prime's script font size, and priming
+   reads the same at any size. prepare-starlight.mjs adds the class at build
+   time, so the position holds before JavaScript runs and with it disabled. */
+.typst-article math .math-prime { position: relative; top: .12em; }
 /* Display math keeps the root 23px, scaled by the same dial as the body so
    equations stay a step above the prose around them. */
 .typst-article math[display='block'] { font-size: calc(1.4375rem * var(--notebook-type-scale)); max-width: 100%; overflow-x: auto; }
