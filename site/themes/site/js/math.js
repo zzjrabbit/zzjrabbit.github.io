@@ -32,20 +32,30 @@
   }
   // Hand the wrapper the ratio that brings the formula inside the column, and
   // correct it against what is really rendered: MathML rounds each glyph advance
-  // at its own size, so one proportional estimate can land a few pixels short of
-  // the column and leave a scrollbar behind. Measuring starts from the formula's
-  // own size on every pass, so the fit never drifts smaller than the width the
-  // reader actually has.
+  // at its own size, and its ink (stretchy operators, italic corrections) can
+  // spill past the formula's own box while still counting towards the wrapper's
+  // scrollable overflow — so a proportional estimate that only reads the
+  // formula's box can land short of the column and leave the scrollbar behind.
+  // Measuring starts from the formula's own size on every pass, so the fit never
+  // drifts smaller than the width the reader actually has.
   function fit(box, math) {
     const floor = narrow.matches ? MIN_FIT.narrow : MIN_FIT.wide;
     let ratio = 1;
     for (let attempt = 0; attempt < 6; attempt += 1) {
       box.style.setProperty('--math-fit', String(+ratio.toFixed(3)));
-      if (box.scrollWidth <= box.clientWidth + 1) return;
-      const available = availableWidth(math);
+      const over = box.scrollWidth - box.clientWidth;
+      if (over <= 1) return;
+      const room = availableWidth(math);
       const width = math.getBoundingClientRect().width;
-      if (!available || !width || available >= width || ratio <= floor) return;
-      ratio = Math.max(floor, ratio * (available / width));
+      if (!room || !width || ratio <= floor) return;
+      // Shrink by the larger of the two shortfalls: the formula's layout width,
+      // and the overflow the wrapper reports. The extra 0.5% leaves the result a
+      // hair inside the column, where a sub-pixel difference between browser
+      // builds cannot put a scrollbar back (CI's Chromium and this one round
+      // these glyphs differently).
+      const factor = Math.min(room / width, room / (room + over)) * 0.995;
+      if (!(factor < 1)) return;
+      ratio = Math.max(floor, ratio * factor);
     }
   }
   function wrap(math, inline = false) {
