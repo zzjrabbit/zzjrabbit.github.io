@@ -79,7 +79,7 @@ site/                      # Calepin 编译源目录，不是最终界面源目�
 ├── themes/site/           # 保留编译适配；旧 CSS/导航脚本不再控制最终界面
 │   ├── notes.typ          # 定理环境与 align 的网页适配，PDF 保留原样
 │   ├── cetz.typ           # CeTZ 画布适配：HTML 用 html.frame 保留矢量图，PDF 原样
-│   ├── js/math.js         # 由 Astro 页面导入的 MathML 滚动增强
+│   ├── js/math.js         # 由 Astro 页面导入的 MathML 适配增强（宽屏缩到放得下，窄屏留可读下限）
 │   └── layouts/pdf.typ    # 让笔记自己的排版决定 PDF
 ├── typ/                   # ← 从 notes 仓库同步进来（数学），不入库
 ├── phys/                  # ← 同上（物理；physics/ 也接受），不入库
@@ -247,8 +247,14 @@ NOTES_DIR=/path/to/notes scripts/build.sh
 「当前页」标记画在**整行**上，而不是行内的标题上：轨道/学科标题本身就是进入该页的链接，`padding-inline` 为 0，标记若画在链接上，强调竖线就会压住标题首字。因此 `SidebarSublist.astro` 给这类行的 `<summary>` 加 `data-current`（轨道页自己的「No notes yet」行指向同一 URL，不再重复标记），`src/styles/notes.css` 用 `--notebook-current-*` 一组 token 统一着色（浅色模式用 `accent-high` 作为文字色，保证 4.5:1）。
 
 数学继续使用 Typst 原生 MathML，**不重写公式内容、不引入 MathJax、不改笔记 PDF**。
-`site/themes/site/js/math.js` 作为保留的数学增强，由 Astro 笔记页面导入；它为行间公式与超宽行内矩阵添加滚动容器，
-只有确实溢出的容器才进入 Tab 顺序，字体加载或窗口变化后重新检测。禁用 JavaScript 时保留基础行间公式滚动样式。
+`site/themes/site/js/math.js` 作为保留的数学增强，由 Astro 笔记页面导入；它为行间公式与超宽行内矩阵添加容器，
+**并按列宽缩放放不下的公式**（容器上的 `--math-fit` 只缩放公式根字号，`src/styles/notes.css` 与 `site/themes/site/css/overrides.css` 各乘一次）。
+**断点是 `(max-width: 40rem)`**：宽屏不设下限，公式一直缩到完全放得下、页面上没有横向滚动条；
+窄屏缩到 `MIN_FIT.narrow = 0.66` 为止（行间公式约 16px，接近正文），再宽才保留滚动容器——
+手机列宽只有 300 出头，不设下限会把 sling 的行间公式压成 7px 的字。
+代价是手机上有少数公式重新滚动：实测 320px 视口 120 个容器里 53 个、390px 的 109 个里 24 个滚动，768px 及以上为 0。
+缩放不线性：MathML 每个字形会按字号取整，因此一次比例估算可能差几个像素、把滚动条又带回来，脚本改为按真实渲染宽度迭代校正。
+字体加载、窗口变化与**跨断点**（监听 `matchMedia`）后都重新测量；只有完全测不到可用宽度时（尚未布局、或祖先宽度为 0）才退回滚动容器。禁用 JavaScript 时保留基础行间公式滚动样式。
 **正文与公式都由站点自带的衬线字体渲染**：`public/fonts/` 存放 STIX Two Text（正文四款字重/斜体）与 STIX Two Math（数学），
 由 `src/styles/notes.css` 用 `@font-face` 声明，并排在所有字体栈首位（SIL OFL 1.1，见 `public/fonts/OFL.txt`）。
 此前字体栈里只有「读者机器上可能装了的」数学字体，落到系统默认后，同一篇公式在不同平台会换形——Linux 上正文字母来自中文衬线、
@@ -278,6 +284,7 @@ CHROMIUM_PATH=/path/to/chromium node scripts/check-readability.mjs
 它拦截 `https://notes.test/` 的**虚拟请求**，直接返回本地 `_site/` 文件，**不启动 HTTP 服务器**，也不替换已有预览服务。
 脚本覆盖五种视口宽度（320/390/768/1024/1440px）、首页封面、完整索引、每条轨道页、每个学科页、代表性长文、移动菜单/Escape、浅深色、搜索及页面错误，
 并断言侧边栏**每页只有一个「当前页」标记**、标记所在的整行与其标题之间留出至少 8px（避免强调竖线压住标题）；
+超宽公式在 320/390/768/1440px 下逐篇断言：320/390px 允许滚动、但缩放不得低于 `0.66` 的下限，且只有已经缩到下限的公式才允许滚动；768/1440px 则要求**一个滚动条都没有**，缩放比例也不得低于 0.15（更低说明测量本身崩了）；
 撇号位置按公式自身的 em 逐处断言：上标撇号的墨迹不得高过它所属字母的墨迹（曾经的 +0.087em 就是「撇号飞在字母上方」），也不得沉进字母内部，
 并进一步断言自带的 STIX Two Text / STIX Two Math 确实被加载、正文与数学的字体栈都以它们开头，且数学字样的量度与平台回退字体不同
 ——字体文件漏发或路径写错会在云端构建时就失败，而不是在各平台悄悄换字体。这一组断言同样在没有 JavaScript 的页面上跑一遍。

@@ -287,8 +287,11 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
 /* MathML roots are inline or spaced by .math-scroll, not Markdown blocks.
    Descendants opt out via not-content in the HTML bridge; do not reset their
    margins/padding wholesale (Typst uses these for fractions and matrices). */
-/* Scale only the root: preserve native math-depth sizing for scripts. */
-.typst-article math { font-family: 'STIX Two Math', 'Libertinus Math', 'Cambria Math', 'Noto Serif CJK SC', 'Songti SC', math; font-size: 1.15em; overflow-wrap: normal; margin: 0; }
+/* Scale only the root: preserve native math-depth sizing for scripts. The root
+   also carries --math-fit, the ratio js/math.js measures for a formula wider
+   than its column, so a long displayed equation shrinks into the text column
+   instead of opening a scrollbar (a default of 1 keeps unwrapped math native). */
+.typst-article math { font-family: 'STIX Two Math', 'Libertinus Math', 'Cambria Math', 'Noto Serif CJK SC', 'Songti SC', math; font-size: calc(1.15em * var(--math-fit, 1)); overflow-wrap: normal; margin: 0; }
 /* A prime is an attachment, but MathML only has ordinary superscripts: the
    browser raises the prime by the superscript shift while STIX Two Math already
    draws U+2032 high in its own em box, so `f'` put the apostrophe above the `f`,
@@ -301,8 +304,8 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
 .typst-article math .math-prime { position: relative; top: .12em; }
 /* Display math keeps the root 23px, scaled by the same dial as the body so
    equations stay a step above the prose around them. */
-.typst-article math[display='block'] { font-size: calc(1.4375rem * var(--notebook-type-scale)); max-width: 100%; overflow-x: auto; }
-.math-scroll { max-width: 100%; overflow-x: auto; margin-block: 1.3rem; padding: .9rem .6rem; scrollbar-width: thin; overscroll-behavior-x: contain; }
+.typst-article math[display='block'] { font-size: calc(1.4375rem * var(--notebook-type-scale) * var(--math-fit, 1)); max-width: 100%; overflow-x: auto; }
+.math-scroll { --math-fit: 1; max-width: 100%; overflow-x: auto; margin-block: 1.3rem; padding: .9rem .6rem; scrollbar-width: thin; scrollbar-color: var(--sl-color-gray-4) transparent; overscroll-behavior-x: contain; }
 .math-scroll > math[display='block'] { max-width: none; overflow: visible; }
 .math-scroll > math { width: max-content; min-width: 100%; }
 .math-scroll-inline { display: inline-block; vertical-align: middle; width: 100%; }

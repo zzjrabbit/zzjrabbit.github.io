@@ -87,17 +87,19 @@ body { -webkit-font-smoothing: antialiased; }
 .math-scroll.is-overflowing { border-bottom: 1px dashed var(--calepin-color-border); }
 .calepin-website-main math {
   font-family: "STIX Two Math", "Libertinus Math", "Cambria Math", "Latin Modern Math", "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", math;
-  font-size: 1.04em;
+  font-size: calc(1.04em * var(--math-fit, 1));
   overflow-wrap: normal;
 }
 .calepin-website-main math[display="block"] { margin-block: .3rem; }
 .math-scroll {
+  --math-fit: 1;
   max-width: 100%;
   min-width: 0;
   overflow-x: auto;
   margin-block: 1.25rem;
   padding: .6rem .2rem;
   scrollbar-width: thin;
+  scrollbar-color: var(--calepin-color-border) transparent;
   overscroll-behavior-x: contain;
 }
 .math-scroll > math { width: max-content; min-width: 100%; }

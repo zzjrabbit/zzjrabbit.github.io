@@ -126,6 +126,52 @@ try {
     assert.ok(prime.clearance <= 0.01, `without JavaScript the prime in ${prime.base}' floats above the letter (${prime.clearance}em)`);
   }
   await noJS.close();
+  // Every formula is shown whole. A formula wider than its column is scaled down
+  // until it fits — the column gets smaller formulas, never a scrollbar — and on
+  // a wide screen that fit has no limit. A phone column is too narrow for that:
+  // an unrestricted fit turned sling's display equations into 7px type at 390px,
+  // so narrow screens stop at the floor js/math.js declares and scroll beyond it.
+  // Before any of this, cover_linear alone scrolled both of its widest case lists
+  // at 1440px, and sling most of its display equations on a phone.
+  const NARROW = '(max-width: 40rem)';
+  const narrowFit = 0.66;
+  const readMathBoxes = target => target.locator('.math-scroll').evaluateAll(boxes => boxes.map(box => {
+    const math = box.querySelector('math');
+    return {
+      overflowing: box.scrollWidth > box.clientWidth + 1,
+      fit: +(box.style.getPropertyValue('--math-fit') || 1),
+      text: (math.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40),
+    };
+  }));
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 1000 });
+    // The breakpoint decides the floor, so ask the page for it rather than
+    // restating it here: a width on the phone side of it is expected to stop at
+    // the floor, and one on the wide side to fit with no limit at all.
+    const narrow = await page.evaluate(query => matchMedia(query).matches, NARROW);
+    assert.equal(narrow, width <= 640, `${width}px: the breakpoint still splits phones from wide screens`);
+    for (const note of notes) {
+      await page.goto(`https://notes.test/${note.file}`);
+      await page.evaluate(() => document.fonts.ready);
+      // The fit settles in a frame of its own after the web fonts land.
+      await page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done))));
+      for (const box of await readMathBoxes(page)) {
+        // A fit below the narrow floor, or below 0.15 on a wide screen, would
+        // mean the measurement collapsed rather than the formula being wide.
+        assert.ok(box.fit >= (narrow ? narrowFit : 0.15) - 0.001,
+          `${width}px: a formula collapsed instead of fitting (${box.fit}): ${note.file} ${box.text}`);
+        assert.ok(narrow ? !box.overflowing || box.fit <= narrowFit + 0.001 : !box.overflowing,
+          `${width}px: a formula scrolls although the column still has room (${box.fit}): ${note.file} ${box.text}`);
+      }
+    }
+  }
+  // The widest equations of this note are the ones that used to scroll: they
+  // are fitted at a desktop width, not merely contained by a scrollbar.
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('https://notes.test/typ/lie/cover_linear.html');
+  await page.evaluate(() => document.fonts.ready);
+  assert.ok((await readMathBoxes(page)).some(box => box.fit < 1), 'a wide formula is fitted to the column');
+  assert.equal(await page.locator('.math-scroll.is-overflowing').count(), 0, 'every formula fits the column at a desktop width');
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('https://notes.test/');
   // The home page stays a cover: one panel per track, one card per subject,
