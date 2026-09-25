@@ -73,6 +73,9 @@ export const SUBJECT_REGISTRY = [
   { key: 'typ/lie', label: 'Lie theory', blurb: 'Groups, their linearizations, and the symmetry behind functional equations.' },
   { key: 'typ/inequalities', label: 'Inequalities', blurb: 'Comparisons and bounds between quantities, and the estimates that make each one rigorous.' },
   { key: 'models', label: 'Mathematical modeling', blurb: 'Small optimisation and simulation models, with their assumptions stated up front.' },
+  { key: 'phys/dynamics', label: 'Dynamics', blurb: 'Forces, momentum and energy, and how an equation of motion is set up and solved.' },
+  { key: 'phys/statics', label: 'Statics', blurb: 'Equilibrium of forces and moments, and the conditions under which nothing moves.' },
+  { key: 'phys/kinematics', label: 'Kinematics', blurb: 'Position, velocity and acceleration described first, before asking what causes the motion.' },
 ];
 
 /** Published pages that sit outside any subject folder are collected here. */
