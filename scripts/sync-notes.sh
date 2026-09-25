@@ -34,8 +34,21 @@ done
 # --checksum above restores these copies before each pass, making this idempotent.
 # phys/ is the physics twin of typ/ and needs the same web adaptation; physics/
 # is accepted as an alias for it.
+#
+# `#show: web-equations` is the equation half of the same adaptation. A note
+# numbers its formulas with `#set math.equation(numbering: "(1)")`, and a set
+# rule cannot be shadowed by an imported name the way `align` is, so the show
+# rule has to enter the document itself — here, ahead of the note's own
+# `#show: tylenotes.with(...)`. Paged output passes through untouched.
+#
+# Each collection's `shared.typ` is skipped: it defines `web-equations` itself
+# (next to `tylenotes`, so a note compiles the same on its own), and the theme
+# gets that definition from there. Injecting the adapter import into it as well
+# would close a cycle — the theme would import `shared.typ`, which would import
+# the theme back.
 while IFS= read -r -d '' file; do
-  perl -0pi -e 's{^(\h*#import\h+"\@preview/noteworthy:[^"\n]+"[^\n]*)(\n|\z)}{$1\n#import "/themes/site/notes.typ": *\n}mg' "$file"
+  [[ "$(basename "$file")" == shared.typ ]] && continue
+  perl -0pi -e 's{^(\h*#import\h+"\@preview/noteworthy:[^"\n]+"[^\n]*)(\n|\z)}{$1\n#import "/themes/site/notes.typ": *\n#show: web-equations\n}mg' "$file"
 done < <(printf '%s\0' "$dst"/typ/**/*.typ "$dst"/phys/**/*.typ "$dst"/physics/**/*.typ "$dst"/models/**/*.typ | while IFS= read -r -d '' file; do
   [[ -f "$file" ]] && printf '%s\0' "$file"
 done)

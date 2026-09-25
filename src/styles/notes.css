@@ -307,6 +307,17 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
 .math-scroll > math { width: max-content; min-width: 100%; }
 .math-scroll-inline { display: inline-block; vertical-align: middle; width: 100%; }
 .math-scroll.is-overflowing { border-bottom: 1px dashed var(--sl-color-text-accent); }
+/* Numbered equations. Typst's HTML export drops the number a note asked for with
+   `#set math.equation(numbering: "(1)")`; themes/site/notes.typ rebuilds it as
+   two boxes around the untouched formula and this places them. `align`, `grid`
+   and `place` are all ignored — and emptied — during HTML export, so the layout
+   has to come from CSS. The formula keeps its own scroll container, which
+   shrinks instead of pushing the number out of the column. */
+.note-equation { display: flex; align-items: center; gap: 1rem; margin-block: 1.3rem; }
+.note-equation-body { flex: 1 1 auto; min-width: 0; }
+.note-equation-number { flex: 0 0 auto; }
+.note-equation-start { flex-direction: row-reverse; }
+.note-equation .math-scroll { margin-block: 0; padding: 0; }
 .note-environment { --env-accent: var(--sl-color-text-accent); min-width: 0; margin-block: 1.75rem; padding: 1rem 1.2rem; border: 1px solid var(--sl-color-hairline); border-inline-start: 3px solid var(--env-accent); border-radius: .35rem; background: var(--sl-color-bg-sidebar); }
 .note-environment-title { color: var(--env-accent); font-size: .9rem; font-weight: 650; padding-bottom: .6rem; border-bottom: 1px solid var(--sl-color-hairline); }
 .note-environment-body { margin-top: .8rem; }

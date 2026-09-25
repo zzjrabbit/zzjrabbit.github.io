@@ -61,3 +61,12 @@
 #let claim = adapt(original.claim)
 #let proof = adapt(original.proof)
 #let solution = adapt(original.solution)
+
+// Equation numbering lives in the notes repository, next to `tylenotes`, so that
+// the same `#show: equations` line works whether a note is compiled on its own or
+// published here — the pattern the title template already follows. This file used
+// to carry its own copy, which meant the website could drift from what a note
+// compiles with locally. Only the HTML the number is drawn into is the theme's
+// business; `html.elem` cannot be exercised outside a build, but it is also the
+// only part a note never needs on its own.
+#import "/typ/shared.typ": equations, web-equations
