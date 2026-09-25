@@ -131,14 +131,21 @@ try {
   // a wide screen that fit has no limit. A phone column is too narrow for that:
   // an unrestricted fit turned sling's display equations into 7px type at 390px,
   // so narrow screens stop at the floor js/math.js declares and scroll beyond it.
-  // Before any of this, cover_linear alone scrolled both of its widest case lists
-  // at 1440px, and sling most of its display equations on a phone.
+  // The wrapper is not a scroll container at all until that genuine overflow
+  // marks it, so a fitted formula cannot paint a scrollbar on a platform whose
+  // math font rounds one pixel wider than this one's. Before any of this,
+  // cover_linear alone scrolled both of its widest case lists at 1440px, and
+  // sling most of its display equations on a phone.
   const NARROW = '(max-width: 40rem)';
   const narrowFit = 0.66;
   const readMathBoxes = target => target.locator('.math-scroll').evaluateAll(boxes => boxes.map(box => {
     const math = box.querySelector('math');
     return {
       overflowing: box.scrollWidth > box.clientWidth + 1,
+      // The wrapper is a scroll container only while it is marked .is-overflowing
+      // (src/styles/notes.css), so this — not the pixel measurement above — is
+      // what decides whether a formula can paint a scrollbar at all.
+      scrolls: getComputedStyle(box).overflowX !== 'visible',
       fit: +(box.style.getPropertyValue('--math-fit') || 1),
       text: (math.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40),
     };
@@ -162,6 +169,11 @@ try {
           `${width}px: a formula collapsed instead of fitting (${box.fit}): ${note.file} ${box.text}`);
         assert.ok(narrow ? !box.overflowing || box.fit <= narrowFit + 0.001 : !box.overflowing,
           `${width}px: a formula scrolls although the column still has room (${box.fit}): ${note.file} ${box.text}`);
+        // A desktop fit must leave no scroll container behind — not even one that
+        // a platform rounding the math font differently would turn into a visible
+        // scrollbar, which is why the gate is the class and not a 1px tolerance.
+        assert.ok(narrow || !box.scrolls,
+          `${width}px: a fitted formula is still a scroll container, so it can paint a scrollbar (${box.fit}): ${note.file} ${box.text}`);
       }
     }
   }

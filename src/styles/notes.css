@@ -305,11 +305,17 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
 /* Display math keeps the root 23px, scaled by the same dial as the body so
    equations stay a step above the prose around them. */
 .typst-article math[display='block'] { font-size: calc(1.4375rem * var(--notebook-type-scale) * var(--math-fit, 1)); max-width: 100%; overflow-x: auto; }
-.math-scroll { --math-fit: 1; max-width: 100%; overflow-x: auto; margin-block: 1.3rem; padding: .9rem .6rem; scrollbar-width: thin; scrollbar-color: var(--sl-color-gray-4) transparent; overscroll-behavior-x: contain; }
+/* The wrapper is a scroll container only while a formula genuinely needs one.
+   `overflow-x: auto` unconditionally does not contain a formula that fits: any
+   rounding-level overshoot — one pixel, and every platform rounds the math font
+   differently — is enough for the browser to paint a real scrollbar under an
+   equation that visually fits. js/math.js measures the wrapper and marks
+   `.is-overflowing` only past that pixel, so a fitted equation carries none. */
+.math-scroll { --math-fit: 1; max-width: 100%; margin-block: 1.3rem; padding: .9rem .6rem; scrollbar-width: thin; scrollbar-color: var(--sl-color-gray-4) transparent; }
 .math-scroll > math[display='block'] { max-width: none; overflow: visible; }
 .math-scroll > math { width: max-content; min-width: 100%; }
 .math-scroll-inline { display: inline-block; vertical-align: middle; width: 100%; }
-.math-scroll.is-overflowing { border-bottom: 1px dashed var(--sl-color-text-accent); }
+.math-scroll.is-overflowing { overflow-x: auto; overscroll-behavior-x: contain; border-bottom: 1px dashed var(--sl-color-text-accent); }
 /* Numbered equations. Typst's HTML export drops the number a note asked for with
    `#set math.equation(numbering: "(1)")`; themes/site/notes.typ rebuilds it as
    two boxes around the untouched formula and this places them. `align`, `grid`

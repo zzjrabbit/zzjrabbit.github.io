@@ -1,5 +1,8 @@
 /* Preserve native MathML. Overflow belongs to an HTML box, never the math
-   layout tree. No equations, labels, or mathematical text are rewritten. */
+   layout tree. No equations, labels, or mathematical text are rewritten.
+   The wrapper is a scroll container only while .is-overflowing says so (see
+   .math-scroll in src/styles/notes.css): an equation that fits keeps no
+   overflow of its own, so it cannot paint a scrollbar. */
 (() => {
   const main = document.querySelector('.calepin-website-main');
   if (!main) return;
@@ -18,6 +21,9 @@
   function update(box) {
     const math = box.querySelector('math');
     if (math) fit(box, math);
+    // Only a box that overflows by more than a rounding pixel is marked, and
+    // only a marked box scrolls. A formula the fit brought inside the column
+    // therefore carries no scrollbar on any platform, however its font rounds.
     const overflow = box.scrollWidth > box.clientWidth + 1;
     box.classList.toggle('is-overflowing', overflow);
     if (overflow) {
@@ -37,14 +43,16 @@
   // scrollable overflow — so a proportional estimate that only reads the
   // formula's box can land short of the column and leave the scrollbar behind.
   // Measuring starts from the formula's own size on every pass, so the fit never
-  // drifts smaller than the width the reader actually has.
+  // drifts smaller than the width the reader actually has. A pass stops only at
+  // genuine equality: one pixel of slack was where a formula the reader saw as
+  // fitting kept a scrollbar on platforms that round the math font differently.
   function fit(box, math) {
     const floor = narrow.matches ? MIN_FIT.narrow : MIN_FIT.wide;
     let ratio = 1;
     for (let attempt = 0; attempt < 6; attempt += 1) {
       box.style.setProperty('--math-fit', String(+ratio.toFixed(3)));
       const over = box.scrollWidth - box.clientWidth;
-      if (over <= 1) return;
+      if (over <= 0) return;
       const room = availableWidth(math);
       const width = math.getBoundingClientRect().width;
       if (!room || !width || ratio <= floor) return;
