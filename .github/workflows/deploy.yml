@@ -97,6 +97,11 @@ jobs:
         run: |
           SOURCE_DATE_EPOCH=$(git -C .notes-source log -1 --format=%ct)
           export SOURCE_DATE_EPOCH
+          # The equation tests read the synchronized collections (site/typ/...),
+          # which are gitignored precisely because this step generates them.
+          # build.sh syncs too, but that happens after the tests, so sync here
+          # first or they fail with ENOENT on a clean checkout.
+          bash scripts/sync-notes.sh
           npm run check
           bash scripts/build.sh
           bash scripts/check-rendering.sh
