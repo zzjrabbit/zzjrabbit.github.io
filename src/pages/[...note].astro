@@ -34,6 +34,19 @@ const track = trackOf(library, note.file);
     <pre><code>{note.source}</code></pre>
   </details>
 </StarlightPage>
-<script>
-  import '../../site/themes/site/js/math.js';
+<script is:inline>
+  window.MathJax = {
+    loader: {
+      paths: {
+        mathjax: '/mathjax',
+        'mathjax-stix2': '/mathjax/mathjax-stix2-font',
+      },
+    },
+    output: {
+      font: 'mathjax-stix2',
+      displayOverflow: 'linebreak',
+      linebreaks: { inline: true, width: '100%' },
+    },
+  };
 </script>
+<script is:inline src="/mathjax/mml-chtml-nofont.js" defer></script>

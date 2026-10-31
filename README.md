@@ -36,7 +36,8 @@ notes 中的 `.github/workflows/publish-website.yml` 会通知网站的 `deploy.
 | 站点外壳 | Astro **7.3.2** + Starlight **0.42.0**：导航、目录、浅/深色、移动菜单与 Pagefind 搜索 |
 | 笔记编译 | [Calepin](https://vincentarelbundock.github.io/calepin/)：组织 Typst 页面并生成 HTML、PDF 与源码 |
 | 排版渲染 | 官方 `typst` CLI（Calepin 只做编排，真正调用 `typst compile`） |
-| 桥接 | `scripts/prepare-starlight.mjs`：提取正文、标题、目录与数学 CSS，复制静态资源 |
+| 数学网页排版 | MathJax **4.1.3** + 自托管 STIX2 字体：原生 MathML 转 CHTML，长公式按运算符自动换行，无横向滚动条 |
+| 桥接 | `scripts/prepare-starlight.mjs`：提取正文、标题、目录与数学 CSS，复制静态资源与 MathJax 组件 |
 | 构建环境 | Node.js **>= 22.12**、npm；依赖版本由 `package-lock.json` 锁定 |
 | 部署 | GitHub Actions + GitHub Pages |
 
@@ -52,7 +53,7 @@ notes → site/ 同步副本 → Calepin + Typst → _calepin/
 桥接器把 HTML 正文、标题、描述、日期、标签、目录锚点、源码与数学 CSS 写入 `notes.json`，
 并汇总笔记目录里可选的 `subject.json`（见「轨道、栏目与首页」），
 将 PDF、文章 `.typ` 等非 HTML 静态产物复制到 `.generated/public/`，并合并手写 `public/` 资源；排除 Calepin 内部元数据、旧首页/404 模板、旧 sitemap/robots、未发布的生成文件和 Pagefind 索引。最终 sitemap 由 Astro 统一生成。
-正文以 HTML 片段交给 Astro，**不经过 Markdown/MDX 转换**，保留原生 MathML、SVG 和定理语义标记，不引入 MathJax。
+正文以 HTML 片段交给 Astro，**不经过 Markdown/MDX 转换**，保留原生 MathML、SVG 和定理语义标记；网页加载 MathJax 4.1.3 后把原生 MathML 排成可自动换行的 CHTML，不改公式内容或 PDF。
 Astro 重新生成首页、笔记外壳、404 与搜索索引，PDF 直接复制、不重新排版；构建后的校验器检查其与 `_calepin/` 中的 PDF 逐字节一致。
 已有 `typ/topology/continuous.html` 及对应 `.pdf`、`.typ` URL 保持不变。
 
@@ -79,7 +80,6 @@ site/                      # Calepin 编译源目录，不是最终界面源目�
 ├── themes/site/           # 保留编译适配；旧 CSS/导航脚本不再控制最终界面
 │   ├── notes.typ          # 定理环境与 align 的网页适配，PDF 保留原样
 │   ├── cetz.typ           # CeTZ 画布适配：HTML 用 html.frame 保留矢量图，PDF 原样
-│   ├── js/math.js         # 由 Astro 页面导入的 MathML 适配增强（宽屏缩到放得下且不留滚动容器，窄屏留可读下限）
 │   └── layouts/pdf.typ    # 让笔记自己的排版决定 PDF
 ├── typ/                   # ← 从 notes 仓库同步进来（数学），不入库
 ├── phys/                  # ← 同上（物理；physics/ 也接受），不入库
@@ -89,7 +89,7 @@ scripts/
 ├── sync-notes.sh          # 同步笔记到 site/，注入定理适配并把 CeTZ 导入改写到 themes/site/cetz.typ
 ├── get-calepin.sh         # 安装固定版本的 Calepin（NixOS 会自动修 interpreter）
 ├── build.sh               # 同步 → _calepin/ → npm run build:web → _site/
-├── prepare-starlight.mjs  # 桥接 Calepin 正文与静态资源，并检查轨道声明
+├── prepare-starlight.mjs  # 桥接 Calepin 正文与静态资源，复制 MathJax，并检查轨道声明
 ├── check-starlight.mjs    # 构建后校验 URL、链接、轨道/学科页、MathML/SVG、PDF 与搜索产物
 ├── check-rendering.sh     # 定理/证明、MathML 与每篇 CeTZ 笔记的 SVG 抽查
 ├── browser-check.mjs     # Playwright 浏览器回归，不启动服务器
@@ -246,27 +246,13 @@ NOTES_DIR=/path/to/notes scripts/build.sh
 **轨道标题与学科标题都是链接**，分别进入轨道页与学科页，右侧箭头才是展开/收起（`src/components/Sidebar.astro` 覆盖 Starlight 的 `Sidebar`，`SidebarSublist.astro` 是改写后的上游模板；点标题不会被误记为「收起该分组」）。轨道标题用独立的 `.track-link` 类，因此「每个学科页都能从侧边栏一次点到」这条既有的浏览器回归断言仍然只依赖 `.group-link`。旧的 Calepin 主题 CSS、导航脚本及 `site/index.typ` 不再控制最终网站外观。
 「当前页」标记画在**整行**上，而不是行内的标题上：轨道/学科标题本身就是进入该页的链接，`padding-inline` 为 0，标记若画在链接上，强调竖线就会压住标题首字。因此 `SidebarSublist.astro` 给这类行的 `<summary>` 加 `data-current`（轨道页自己的「No notes yet」行指向同一 URL，不再重复标记），`src/styles/notes.css` 用 `--notebook-current-*` 一组 token 统一着色（浅色模式用 `accent-high` 作为文字色，保证 4.5:1）。
 
-数学继续使用 Typst 原生 MathML，**不重写公式内容、不引入 MathJax、不改笔记 PDF**。
-`site/themes/site/js/math.js` 作为保留的数学增强，由 Astro 笔记页面导入；它为行间公式与超宽行内矩阵添加容器，
-**并按列宽缩放放不下的公式**（容器上的 `--math-fit` 只缩放公式根字号，`src/styles/notes.css` 与 `site/themes/site/css/overrides.css` 各乘一次）。
-**断点是 `(max-width: 40rem)`**：宽屏不设下限，公式一直缩到完全放得下、页面上没有横向滚动条；
-窄屏缩到 `MIN_FIT.narrow = 0.66` 为止（行间公式约 16px，接近正文），再宽才真的滚动——
-手机列宽只有 300 出头，不设下限会把 sling 的行间公式压成 7px 的字。
-代价是手机上有少数公式会滚动：实测 320px 视口 120 个容器里 50 个、390px 的 109 个里 23 个滚动，768px 及以上为 0。
-**容器默认 `overflow-x: visible`，只有脚本量到真溢出才加 `.is-overflowing` 成为滚动容器**：宽屏上公式缩到放得下，
-于是根本没有滚动容器，别的平台把同一组字形取整宽出一个像素也画不出滚动条；只有窄屏触到下限的公式才拿到滚动条。
-一次比例估算不够：MathML 每个字形会按字号取整，而且**墨迹会溢出公式自己的盒子**（伸展算子、斜体修正都算进容器的可滚动溢出），
-所以脚本每轮都按「公式盒子宽度」与「容器实际报告的溢出量」里更大的那个缺口收缩，并留 0.5% 余量，一直收到容器**报告零溢出**为止——
-留 1px 余量就够别的平台给一条看上去放得下的公式画出滚动条，`available >= width` 就收手的旧写法在 CI 的 390px 下也留下过一个滚动条。
-字体加载、窗口变化与**跨断点**（监听 `matchMedia`）后都重新测量；测不到可用宽度时（尚未布局、或祖先宽度为 0）不做缩放，此时若仍量到溢出就退回滚动容器。禁用 JavaScript 时保留基础行间公式滚动样式。
-**正文与公式都由站点自带的衬线字体渲染**：`public/fonts/` 存放 STIX Two Text（正文四款字重/斜体）与 STIX Two Math（数学），
-由 `src/styles/notes.css` 用 `@font-face` 声明，并排在所有字体栈首位（SIL OFL 1.1，见 `public/fonts/OFL.txt`）。
-此前字体栈里只有「读者机器上可能装了的」数学字体，落到系统默认后，同一篇公式在不同平台会换形——Linux 上正文字母来自中文衬线、
-运算符与撇号来自 Liberation Serif，与数学字母混在一行里。字体文件、`@font-face` 与「撇号不再飞到字母上方」的断言都在回归里把关。
-**撇号位置**由构建期修正：MathML 只有普通上标，浏览器按上标位移抬升撇号，而数学字体本身已把 U+2032 画在 em 框高处，
-`f'` 因此把撇号抬到了字母顶端之上。`scripts/prepare-starlight.mjs` 在构建时给上标位置的撇号加 `math-prime` 类，
-`src/styles/notes.css` 把它降回笔记自家 Typst 渲染所用的位置（40pt 参考里撇号墨迹下沿 0.444em、x 高度 0.450em，即贴着 x 高度线）。
-这一步在构建期完成、只用 CSS，所以在 JavaScript 运行前和禁用 JavaScript 时同样有效；偏移量以撇号自身字号为单位，任何字号与视口都一致。
+数学渲染使用官方 **MathJax 4.1.3**：Typst 导出的原生 MathML 仍原样进入 HTML，作为无 JavaScript 时的回退；页面加载后 MathJax 把它排成 CHTML，不重写公式内容，也不改 PDF。
+`src/pages/[...note].astro` 打开 `output.displayOverflow = 'linebreak'` 与 `output.linebreaks.inline = true`，宽度取公式容器的 100%，因此行内与行间公式都会像 PDF 一样优先在运算符处换行。
+普通公式不按列宽缩放，也没有公式级横向滚动容器；唯一例外是没有内部断点的矩阵——在 `max-width: 22rem` 的极窄屏上按 CSS 缩放，避免撑出横向滚动条。
+MathJax 组件、STIX2 Web 字体、语音 worker 与语音数据由 `scripts/prepare-starlight.mjs` 从锁定的 npm 依赖复制到 `.generated/public/mathjax/`，不依赖 CDN；`package.json` 固定 `mathjax` 与 `@mathjax/mathjax-stix2-font` 为 `4.1.3`。
+桥接器继续给公式的 MathML 子树加 `not-content`，避免 Starlight 的 Markdown 兄弟间距渗进公式；页面层不再需要为每个公式包一层 scroll/fit 容器。
+正文仍由站点自带的 STIX Two Text 渲染，公式由 MathJax 的 STIX2 Web 字体渲染，两者设计一致且都随站点发布；`public/fonts/` 里的 STIX Two Math 只供无 JavaScript 时的原生 MathML 使用（SIL OFL 1.1，见 `public/fonts/OFL.txt`）。
+无 JavaScript 时仍显示可访问的原生 MathML；构建期给上标撇号加的 `math-prime` 类只用于修正这条回退路径。MathJax 接管后，撇号位置由它的 CHTML 排版负责。
 笔记顶部提供 **PDF 阅读/下载** 与 **Typst 源码下载**链接，正文下方用原生 `<details>` 展开源码；
 不再使用旧主题的 HTML / Source / PDF 三向选择器。源码展示与下载来自同步编译副本，权威原文仍在 notes 仓库。
 
@@ -288,10 +274,9 @@ CHROMIUM_PATH=/path/to/chromium node scripts/check-readability.mjs
 它拦截 `https://notes.test/` 的**虚拟请求**，直接返回本地 `_site/` 文件，**不启动 HTTP 服务器**，也不替换已有预览服务。
 脚本覆盖五种视口宽度（320/390/768/1024/1440px）、首页封面、完整索引、每条轨道页、每个学科页、代表性长文、移动菜单/Escape、浅深色、搜索及页面错误，
 并断言侧边栏**每页只有一个「当前页」标记**、标记所在的整行与其标题之间留出至少 8px（避免强调竖线压住标题）；
-超宽公式在 320/390/768/1440px 下逐篇断言：320/390px 允许滚动、但缩放不得低于 `0.66` 的下限，且只有已经缩到下限的公式才允许滚动；768/1440px 则要求**一个滚动条都没有**，缩放比例也不得低于 0.15（更低说明测量本身崩了）；
-撇号位置按公式自身的 em 逐处断言：上标撇号的墨迹不得高过它所属字母的墨迹（曾经的 +0.087em 就是「撇号飞在字母上方」），也不得沉进字母内部，
-并进一步断言自带的 STIX Two Text / STIX Two Math 确实被加载、正文与数学的字体栈都以它们开头，且数学字样的量度与平台回退字体不同
-——字体文件漏发或路径写错会在云端构建时就失败，而不是在各平台悄悄换字体。这一组断言同样在没有 JavaScript 的页面上跑一遍。
+公式在 320/390/768/1440px 下逐篇等待 MathJax 排版完成，并断言每个原生 `<math>` 都变成一个 CHTML 容器、容器允许 line-break、没有 `overflow-x: auto/scroll`、没有内容溢出且不越出视口，整页也没有横向溢出；另取两篇长公式笔记在 390px 下确认最长公式确实占多行，而不是被压成一行。
+无 JavaScript 的原生 MathML 回退上，撇号位置按公式自身的 em 逐处断言：上标撇号的墨迹不得高过它所属字母的墨迹（曾经的 +0.087em 就是「撇号飞在字母上方」），也不得沉进字母内部。
+字体断言则确认正文的 STIX Two Text 与 MathJax 的 STIX2 字体确实加载、字体栈正确，且正文字样量度与平台回退字体不同——字体文件漏发或路径写错会在云端构建时就失败，而不是在各平台悄悄换字体。
 截图写入 `.generated/screenshots/`（下次桥接会清理）。
 `check-readability.mjs` 的对比度抽样也补上了侧边栏当前页的标题（`#starlight__sidebar summary[data-current] .large`）：它是 `<span>` 而非 `<a>`，此前不在抽样范围内，浅色模式下 3.6:1 的文字因此无人过问。
 `check-starlight.mjs` 另外校验：每篇笔记在完整索引与其学科页各出现一次、首页每个学科一张卡片且不直接铺开笔记、
@@ -307,7 +292,7 @@ CeTZ 与 `align` 适配这一轮之后，`npm run check` 为 28 项，`scripts/c
 这仍不替代后续改动的重新检查，也不代表 GitHub Pages 云端部署已验证。
 
 人工回归还应覆盖全部笔记、目录锚点、键盘 Tab、源码展开/下载与 PDF 链接；
-长公式应在自己的区域滚动而不是撑宽整页。
+长公式应像 PDF 一样自动换行，页面与公式自身都不出现横向滚动条。
 不要直接修改 `_site/`、`_calepin/` 或 `.generated/`：持久的 UI 修改应放在 `src/` 与 `astro.config.mjs`，数学编译适配才修改 `site/themes/site/notes.typ` 等对应文件。
 
 ## 数学环境与日常更新
@@ -328,7 +313,7 @@ CeTZ 与 `align` 适配这一轮之后，`npm run check` 为 28 项，`scripts/c
   `.note-diagram-block` 居中——HTML 里没有 `align` 可用，而 SVG 是固定宽度的块，`text-align` 对它无效。
   画布若给了 `baseline` 就保持行内，不套这层。CeTZ 版本由适配层固定，同步器在笔记请求别的版本时直接停下并指出要改哪一行。
 
-公式仍是可访问的原生 MathML；`src/styles/notes.css` 提供公式滚动、留白与数学环境样式，溢出检测和焦点增强由数学脚本负责。
+公式由 MathJax 从可访问的原生 MathML 排版成 CHTML；`src/styles/notes.css` 提供公式字号、留白与数学环境样式，换行由 MathJax 的 line-breaking 引擎负责。
 桥接器还会给每张图的内部 `id` 加上 `note-diagram-N-` 前缀：Typst 按字形哈希命名 symbol，同一页两张图画同一个字母时会产生重复 `id`。
 表格、代码等阅读样式也由 Astro/Starlight 与 `src/styles/notes.css` 统一管理。这些源码文件不会被笔记同步覆盖。
 

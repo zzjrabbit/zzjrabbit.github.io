@@ -95,7 +95,6 @@
 ::selection { background: var(--sl-color-accent-low); color: var(--sl-color-accent-high); }
 a, button, select, summary { -webkit-tap-highlight-color: transparent; }
 :where(a, button, select, summary, [tabindex]):focus-visible { outline: 2px solid var(--sl-color-text-accent); outline-offset: 5px; }
-.math-scroll:focus-visible { outline-offset: -2px; }
 .notes-meta a, .notes-license a, .typst-article a { text-decoration: underline; text-underline-offset: .2em; text-decoration-thickness: .07em; }
 .note-tools a { max-width: 100%; overflow-wrap: anywhere; }
 .section-heading h2 { min-width: 0; overflow-wrap: anywhere; }
@@ -284,14 +283,11 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
 .typst-article .note-diagram-block > svg { max-width: 100%; height: auto; }
 .typst-article pre, .note-source pre { overflow-x: auto; padding: 1rem; background: var(--sl-color-bg-sidebar); }
 .typst-article table { display: block; max-width: 100%; overflow-x: auto; }
-/* MathML roots are inline or spaced by .math-scroll, not Markdown blocks.
-   Descendants opt out via not-content in the HTML bridge; do not reset their
-   margins/padding wholesale (Typst uses these for fractions and matrices). */
-/* Scale only the root: preserve native math-depth sizing for scripts. The root
-   also carries --math-fit, the ratio js/math.js measures for a formula wider
-   than its column, so a long displayed equation shrinks into the text column
-   instead of opening a scrollbar (a default of 1 keeps unwrapped math native). */
-.typst-article math { font-family: 'STIX Two Math', 'Libertinus Math', 'Cambria Math', 'Noto Serif CJK SC', 'Songti SC', math; font-size: calc(1.15em * var(--math-fit, 1)); overflow-wrap: normal; margin: 0; }
+/* MathML is the no-JavaScript fallback. On load MathJax replaces it with CHTML,
+   which can break long inline formulas across lines like the PDF. Descendants
+   opt out via not-content in the HTML bridge; do not reset their margins/padding
+   wholesale (Typst uses these for fractions and matrices). */
+.typst-article math { font-family: 'STIX Two Math', 'Libertinus Math', 'Cambria Math', 'Noto Serif CJK SC', 'Songti SC', math; font-size: 1.15em; overflow-wrap: normal; margin: 0; }
 /* A prime is an attachment, but MathML only has ordinary superscripts: the
    browser raises the prime by the superscript shift while STIX Two Math already
    draws U+2032 high in its own em box, so `f'` put the apostrophe above the `f`,
@@ -304,29 +300,28 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
 .typst-article math .math-prime { position: relative; top: .12em; }
 /* Display math keeps the root 23px, scaled by the same dial as the body so
    equations stay a step above the prose around them. */
-.typst-article math[display='block'] { font-size: calc(1.4375rem * var(--notebook-type-scale) * var(--math-fit, 1)); max-width: 100%; overflow-x: auto; }
-/* The wrapper is a scroll container only while a formula genuinely needs one.
-   `overflow-x: auto` unconditionally does not contain a formula that fits: any
-   rounding-level overshoot — one pixel, and every platform rounds the math font
-   differently — is enough for the browser to paint a real scrollbar under an
-   equation that visually fits. js/math.js measures the wrapper and marks
-   `.is-overflowing` only past that pixel, so a fitted equation carries none. */
-.math-scroll { --math-fit: 1; max-width: 100%; margin-block: 1.3rem; padding: .9rem .6rem; scrollbar-width: thin; scrollbar-color: var(--sl-color-gray-4) transparent; }
-.math-scroll > math[display='block'] { max-width: none; overflow: visible; }
-.math-scroll > math { width: max-content; min-width: 100%; }
-.math-scroll-inline { display: inline-block; vertical-align: middle; width: 100%; }
-.math-scroll.is-overflowing { overflow-x: auto; overscroll-behavior-x: contain; border-bottom: 1px dashed var(--sl-color-text-accent); }
+.typst-article math[display='block'] { font-size: calc(1.4375rem * var(--notebook-type-scale)); max-width: 100%; }
+/* MathJax's CHTML containers inherit the same two sizes. Its line-breaking
+   engine chooses the breaks, so no formula gets a horizontal scrollbar. */
+.typst-article mjx-container[jax='CHTML'] { font-size: 1.15em; max-width: 100%; }
+.typst-article mjx-container[jax='CHTML']:not([display='true']) { margin-block: 0; }
+.typst-article mjx-container[jax='CHTML'][display='true'] { font-size: calc(1.4375rem * var(--notebook-type-scale)); }
+/* A matrix has no internal line-break opportunity. On the narrowest phones,
+   scale that one unbreakable shape instead of opening a horizontal scrollbar;
+   ordinary formulas still use MathJax's operator-aware line breaking. */
+@media (max-width: 22rem) {
+  .typst-article mjx-container[jax='CHTML']:not([display='true']):has(mjx-mtable) { font-size: 85% !important; }
+}
 /* Numbered equations. Typst's HTML export drops the number a note asked for with
    `#set math.equation(numbering: "(1)")`; themes/site/notes.typ rebuilds it as
    two boxes around the untouched formula and this places them. `align`, `grid`
    and `place` are all ignored — and emptied — during HTML export, so the layout
-   has to come from CSS. The formula keeps its own scroll container, which
-   shrinks instead of pushing the number out of the column. */
+   has to come from CSS. The formula wrapper shrinks instead of pushing the
+   number out of the column. */
 .note-equation { display: flex; align-items: center; gap: 1rem; margin-block: 1.3rem; }
 .note-equation-body { flex: 1 1 auto; min-width: 0; }
 .note-equation-number { flex: 0 0 auto; }
 .note-equation-start { flex-direction: row-reverse; }
-.note-equation .math-scroll { margin-block: 0; padding: 0; }
 .note-environment { --env-accent: var(--sl-color-text-accent); min-width: 0; margin-block: 1.75rem; padding: 1rem 1.2rem; border: 1px solid var(--sl-color-hairline); border-inline-start: 3px solid var(--env-accent); border-radius: .35rem; background: var(--sl-color-bg-sidebar); }
 .note-environment-title { color: var(--env-accent); font-size: .9rem; font-weight: 650; padding-bottom: .6rem; border-bottom: 1px solid var(--sl-color-hairline); }
 .note-environment-body { margin-top: .8rem; }
@@ -486,7 +481,7 @@ h1 { font-size: var(--notebook-type-title); font-weight: 500; line-height: 1.25;
   .note-environment { padding: 1rem; }
   .about-principle { padding: 1.25rem; }
 }
-@media print { .note-tools, .note-source { display: none; } .math-scroll { overflow: visible; } .notes-intro, .note-card { box-shadow: none; } }
+@media print { .note-tools, .note-source { display: none; } .notes-intro, .note-card { box-shadow: none; } }
 
 /* ---------------------------------------------------------------------------
    Home, index and subject pages.

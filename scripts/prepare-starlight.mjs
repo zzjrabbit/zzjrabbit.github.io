@@ -254,6 +254,24 @@ async function readSubjectManifests(files) {
   return manifests;
 }
 
+// MathJax ships as browser components plus a font package. Copy only the MML
+// input/CHTML output component, the STIX2 web font and the speech worker the
+// component requests; MathJax's loader resolves the dynamic ranges and WOFF2
+// files from the two configured directories at runtime.
+async function copyMathJax() {
+  const root = path.join('.generated/public/mathjax');
+  const font = path.join(root, 'mathjax-stix2-font');
+  await mkdir(path.join(root, 'sre/mathmaps'), { recursive: true });
+  await mkdir(font, { recursive: true });
+  await cp('node_modules/mathjax/mml-chtml-nofont.js', path.join(root, 'mml-chtml-nofont.js'));
+  await cp('node_modules/mathjax/sre/speech-worker.js', path.join(root, 'sre/speech-worker.js'));
+  for (const locale of ['base', 'en', 'nemeth']) {
+    await cp(`node_modules/mathjax/sre/mathmaps/${locale}.json`, path.join(root, `sre/mathmaps/${locale}.json`));
+  }
+  await cp('node_modules/@mathjax/mathjax-stix2-font/chtml.js', path.join(font, 'chtml.js'));
+  await cp('node_modules/@mathjax/mathjax-stix2-font/chtml', path.join(font, 'chtml'), { recursive: true });
+}
+
 async function walk(dir, base = '') {
   const out = [];
   for (const entry of await readdir(dir, { withFileTypes: true })) {
@@ -321,6 +339,7 @@ async function prepare() {
   }
   // Hand-maintained public assets survive regeneration of the staging directory.
   await cp('public', '.generated/public', { recursive: true });
+  await copyMathJax();
   await writeFile('.generated/notes.json', JSON.stringify(notes));
   await writeFile('.generated/subjects.json', JSON.stringify(subjectManifests, null, 1));
   console.log(`Prepared ${notes.length} Typst articles for Starlight`);

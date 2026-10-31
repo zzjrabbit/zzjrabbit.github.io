@@ -25,6 +25,32 @@ const primeClearances = page => page.locator('msup > .math-prime, msubsup > .mat
     clearance: +(((baseBox.bottom - primeBox.bottom) - (baseBox.bottom - baseBox.top)) / em).toFixed(3),
   };
 }));
+// MathJax typesets asynchronously after the page and web fonts load. Measure
+// only after its startup promise has settled, or a page that is still switching
+// from native MathML to CHTML can look like it is missing formulas.
+const mathReady = async target => {
+  await target.evaluate(async () => {
+    await document.fonts.ready;
+    await window.MathJax?.startup?.promise;
+  });
+  await target.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done))));
+};
+const readMathState = target => target.evaluate(() => {
+  const containers = [...document.querySelectorAll('.typst-article mjx-container')];
+  return {
+    containers: containers.length,
+    native: document.querySelectorAll('.typst-article math').length,
+    wrongOutput: containers.filter(el => el.getAttribute('jax') !== 'CHTML').length,
+    wrongOverflow: containers.filter(el => el.getAttribute('overflow') !== 'linebreak').length,
+    scrollContainers: containers.filter(el => ['auto', 'scroll'].includes(getComputedStyle(el).overflowX)).length,
+    overflowing: containers.filter(el => el.scrollWidth > el.clientWidth + 1).length,
+    outsideViewport: containers.filter(el => {
+      const box = el.getBoundingClientRect();
+      return box.left < -1 || box.right > innerWidth + 1;
+    }).length,
+    inlineMargins: containers.filter(el => el.getAttribute('display') !== 'true' && (parseFloat(getComputedStyle(el).marginTop) !== 0 || parseFloat(getComputedStyle(el).marginBottom) !== 0)).length,
+  };
+});
 const errors = [];
 let context;
 let page;
@@ -37,68 +63,63 @@ try {
     const url = new URL(route.request().url());
     let file = decodeURIComponent(url.pathname);
     if (file.endsWith('/')) file += 'index.html';
-    const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.json': 'application/json', '.wasm': 'application/wasm' };
+    const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.json': 'application/json', '.wasm': 'application/wasm', '.woff2': 'font/woff2' };
     try { await route.fulfill({ body: await readFile(path.join('_site', file)), contentType: types[path.extname(file)] || 'application/octet-stream' }); }
     catch { await route.fulfill({ status: 404, body: 'Not found' }); }
   });
   page = await context.newPage();
   page.on('pageerror', error => errors.push(error.message));
+  page.on('requestfailed', request => errors.push(`${request.url()}: ${request.failure()?.errorText}`));
   for (const width of [320, 390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     for (const file of ['index.html', 'notes.html', subjectFiles[0], trackFiles[0], 'about.html', 'typ/lie/cover_linear.html', 'typ/real/func_eq_fdts.html']) {
       await page.goto(`https://notes.test/${file}`);
-      await page.evaluate(() => document.fonts.ready);
+      await mathReady(page);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${width}px overflow: ${file}`);
       assert.equal(await page.locator('h1').count(), 1);
-      // Page overflow alone misses broken subscripts/fractions: Markdown's
-      // sibling rule used to insert 16px top margins inside native MathML.
-      const badMathSpacing = await page.locator('.typst-article math, .typst-article math *').evaluateAll(nodes =>
-        nodes.filter(node => parseFloat(getComputedStyle(node).marginTop) !== 0)
-          .map(node => ({ tag: node.tagName, margin: getComputedStyle(node).marginTop })));
-      assert.deepEqual(badMathSpacing, [], `${width}px MathML spacing: ${file}`);
+      // A note's native MathML is the no-JS fallback; MathJax replaces every
+      // formula with one CHTML container. Those containers must neither inherit
+      // the old display wrapper's block spacing nor turn into scroll areas.
+      const mathState = await readMathState(page);
+      if (file.startsWith('typ/')) {
+        assert.ok(mathState.containers > 0, `${width}px: MathJax typesets ${file}`);
+        assert.equal(mathState.native, 0, `${width}px: MathJax replaces every native MathML formula: ${file}`);
+        assert.equal(mathState.wrongOutput, 0, `${width}px: every formula uses CHTML: ${file}`);
+        assert.equal(mathState.wrongOverflow, 0, `${width}px: every formula permits line breaking: ${file}`);
+        assert.equal(mathState.scrollContainers, 0, `${width}px: formulas are not scroll containers: ${file}`);
+        assert.equal(mathState.overflowing, 0, `${width}px: formulas do not overflow their containers: ${file}`);
+        assert.equal(mathState.outsideViewport, 0, `${width}px: formulas stay inside the viewport: ${file}`);
+        assert.equal(mathState.inlineMargins, 0, `${width}px: inline formulas carry no block margin: ${file}`);
+      }
     }
   }
   await page.setViewportSize({ width: 390, height: 844 });
-  // A prime is an attachment, but MathML only has ordinary superscripts:
-  // Chromium raised it by the superscript shift while the math font already
-  // draws U+2032 high in its own em box, so `f'` showed the apostrophe above the
-  // letter, clear of its ascender. The bridge marks prime superscripts and the
-  // stylesheet lowers them to the x-height line the notes' own Typst rendering
-  // uses. Checked in em, so it holds at every type size and viewport.
-  for (const file of ['typ/lie/cover_linear.html', 'models/cafeteria/note.html']) {
-    await page.goto(`https://notes.test/${file}`);
-    await page.evaluate(() => document.fonts.ready);
-    const primes = await primeClearances(page);
-    assert.ok(primes.length, `${file} still publishes primes in MathML`);
-    for (const prime of primes) {
-      assert.ok(prime.clearance <= 0.01, `the prime in ${prime.base}' floats above the letter (${prime.clearance}em): ${file}`);
-      assert.ok(prime.clearance >= -0.3, `the prime in ${prime.base}' sank into the letter (${prime.clearance}em): ${file}`);
-    }
-  }
   // Cross-platform consistency: the serif prose and math faces are self-hosted,
   // so a missing or mis-served font file has to fail here instead of silently
   // becoming whatever font each reader's system happens to call serif or math.
   await page.goto('https://notes.test/typ/lie/cover_linear.html');
-  await page.evaluate(() => document.fonts.ready);
+  await mathReady(page);
   const faces = await page.evaluate(() => ({
     loaded: [...document.fonts].filter(face => face.status === 'loaded').map(face => `${face.family} ${face.weight} ${face.style}`),
     prose: getComputedStyle(document.querySelector('.typst-article')).fontFamily,
-    math: getComputedStyle(document.querySelector('.typst-article math')).fontFamily,
+    math: getComputedStyle(document.querySelector('.typst-article mjx-math')).fontFamily,
+    config: window.MathJax?.config?.output,
   }));
-  for (const face of ['STIX Two Text 400 normal', 'STIX Two Math 400 normal']) {
-    assert.ok(faces.loaded.includes(face), `${face} is delivered and loaded: ${faces.loaded.join(', ')}`);
-  }
+  assert.ok(faces.loaded.includes('STIX Two Text 400 normal'), `STIX Two Text is delivered and loaded: ${faces.loaded.join(', ')}`);
   assert.match(faces.prose, /^['"]?STIX Two Text/, 'prose is set in the bundled serif');
-  assert.match(faces.math, /^['"]?STIX Two Math/, 'mathematics is set in the bundled serif');
+  assert.match(faces.math, /MJX-STX/, 'mathematics is set in MathJax\'s bundled STIX2 face');
+  assert.ok(faces.loaded.some(face => /^MJX-STX-\S+ normal normal$/.test(face)), `MathJax STIX2 is delivered and loaded: ${faces.loaded.join(', ')}`);
+  assert.equal(faces.config?.displayOverflow, 'linebreak', 'display formulas use MathJax line breaking');
+  assert.equal(faces.config?.linebreaks?.inline, true, 'inline formulas may break across lines');
   // Metrics of a math specimen, against the platform's own fallback: identical
   // widths would mean the bundled face never rendered.
   const specimen = await page.evaluate(() => {
     const canvas = document.createElement('canvas').getContext('2d');
-    const width = font => { canvas.font = `100px ${font}`; return canvas.measureText('\u{1D453}\u{1D465}\u{1D466}\u2032').width; };
-    return { bundled: width('"STIX Two Math"'), fallback: width('sans-serif') };
+    const width = font => { canvas.font = `100px ${font}`; return canvas.measureText('mmmmmmmmmm').width; };
+    return { bundled: width('"STIX Two Text"'), fallback: width('serif') };
   });
   assert.ok(Math.abs(specimen.bundled - specimen.fallback) > specimen.fallback * 0.05,
-    `the bundled math face really renders (${specimen.bundled.toFixed(1)}px against ${specimen.fallback.toFixed(1)}px)`);
+    `the bundled prose face really renders (${specimen.bundled.toFixed(1)}px against ${specimen.fallback.toFixed(1)}px)`);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('https://notes.test/about.html');
   assert.equal(await page.locator('#starlight__sidebar a[aria-current="page"]').textContent(), 'About');
@@ -106,7 +127,7 @@ try {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('https://notes.test/about.html');
   await page.screenshot({ path: '.generated/screenshots/about-desktop.png', fullPage: true });
-  // Native math must not depend on the overflow enhancement script.
+  // Native MathML remains in the document as the no-JavaScript fallback.
   const noJS = await browser.newContext({ javaScriptEnabled: false });
   const staticPage = await noJS.newPage();
   await staticPage.route('https://notes.test/**', async route => {
@@ -126,64 +147,44 @@ try {
     assert.ok(prime.clearance <= 0.01, `without JavaScript the prime in ${prime.base}' floats above the letter (${prime.clearance}em)`);
   }
   await noJS.close();
-  // Every formula is shown whole. A formula wider than its column is scaled down
-  // until it fits — the column gets smaller formulas, never a scrollbar — and on
-  // a wide screen that fit has no limit. A phone column is too narrow for that:
-  // an unrestricted fit turned sling's display equations into 7px type at 390px,
-  // so narrow screens stop at the floor js/math.js declares and scroll beyond it.
-  // The wrapper is not a scroll container at all until that genuine overflow
-  // marks it, so a fitted formula cannot paint a scrollbar on a platform whose
-  // math font rounds one pixel wider than this one's. Before any of this,
-  // cover_linear alone scrolled both of its widest case lists at 1440px, and
-  // sling most of its display equations on a phone.
-  const NARROW = '(max-width: 40rem)';
-  const narrowFit = 0.66;
-  const readMathBoxes = target => target.locator('.math-scroll').evaluateAll(boxes => boxes.map(box => {
-    const math = box.querySelector('math');
-    return {
-      overflowing: box.scrollWidth > box.clientWidth + 1,
-      // The wrapper is a scroll container only while it is marked .is-overflowing
-      // (src/styles/notes.css), so this — not the pixel measurement above — is
-      // what decides whether a formula can paint a scrollbar at all.
-      scrolls: getComputedStyle(box).overflowX !== 'visible',
-      fit: +(box.style.getPropertyValue('--math-fit') || 1),
-      text: (math.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40),
-    };
-  }));
+  // Every note must keep all of its formulas inside the text column at every
+  // viewport: MathJax breaks long formulas at operators instead of scaling them
+  // down or putting them in a horizontal scroll container. The source HTML
+  // still carries one <math> per formula; MathJax turns each into one CHTML
+  // container without dropping or duplicating any.
+  const sourceMath = new Map(notes.map(note => [note.file, (note.html.match(/<math\b/g) || []).length]));
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
-    // The breakpoint decides the floor, so ask the page for it rather than
-    // restating it here: a width on the phone side of it is expected to stop at
-    // the floor, and one on the wide side to fit with no limit at all.
-    const narrow = await page.evaluate(query => matchMedia(query).matches, NARROW);
-    assert.equal(narrow, width <= 640, `${width}px: the breakpoint still splits phones from wide screens`);
     for (const note of notes) {
       await page.goto(`https://notes.test/${note.file}`);
-      await page.evaluate(() => document.fonts.ready);
-      // The fit settles in a frame of its own after the web fonts land.
-      await page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done))));
-      for (const box of await readMathBoxes(page)) {
-        // A fit below the narrow floor, or below 0.15 on a wide screen, would
-        // mean the measurement collapsed rather than the formula being wide.
-        assert.ok(box.fit >= (narrow ? narrowFit : 0.15) - 0.001,
-          `${width}px: a formula collapsed instead of fitting (${box.fit}): ${note.file} ${box.text}`);
-        assert.ok(narrow ? !box.overflowing || box.fit <= narrowFit + 0.001 : !box.overflowing,
-          `${width}px: a formula scrolls although the column still has room (${box.fit}): ${note.file} ${box.text}`);
-        // A desktop fit must leave no scroll container behind — not even one that
-        // a platform rounding the math font differently would turn into a visible
-        // scrollbar, which is why the gate is the class and not a 1px tolerance.
-        assert.ok(narrow || !box.scrolls,
-          `${width}px: a fitted formula is still a scroll container, so it can paint a scrollbar (${box.fit}): ${note.file} ${box.text}`);
-      }
+      await mathReady(page);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${width}px page overflow: ${note.file}`);
+      const state = await readMathState(page);
+      assert.equal(state.native, 0, `${width}px: MathJax replaces every native MathML formula: ${note.file}`);
+      assert.equal(state.containers, sourceMath.get(note.file), `${width}px: one CHTML container per formula: ${note.file}`);
+      assert.equal(state.wrongOutput, 0, `${width}px: every formula uses CHTML: ${note.file}`);
+      assert.equal(state.wrongOverflow, 0, `${width}px: every formula permits line breaking: ${note.file}`);
+      assert.equal(state.scrollContainers, 0, `${width}px: formulas are not scroll containers: ${note.file}`);
+      assert.equal(state.overflowing, 0, `${width}px: formulas do not overflow their containers: ${note.file}`);
+      assert.equal(state.outsideViewport, 0, `${width}px: formulas stay inside the viewport: ${note.file}`);
+      assert.equal(state.inlineMargins, 0, `${width}px: inline formulas carry no block margin: ${note.file}`);
     }
   }
-  // The widest equations of this note are the ones that used to scroll: they
-  // are fitted at a desktop width, not merely contained by a scrollbar.
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto('https://notes.test/typ/lie/cover_linear.html');
-  await page.evaluate(() => document.fonts.ready);
-  assert.ok((await readMathBoxes(page)).some(box => box.fit < 1), 'a wide formula is fitted to the column');
-  assert.equal(await page.locator('.math-scroll.is-overflowing').count(), 0, 'every formula fits the column at a desktop width');
+  // A wide inline formula must actually occupy more than one line at phone width.
+  // Its height is measured against its own font size so the check survives type
+  // scale changes; the former fit-to-column code produced one narrow line here.
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const file of ['typ/problems/fe_finite_set.html', 'phys/dynamics/sling.html']) {
+    await page.goto(`https://notes.test/${file}`);
+    await mathReady(page);
+    const tallest = await page.locator('.typst-article mjx-container').evaluateAll(containers => containers.reduce((best, el) => {
+      const box = el.getBoundingClientRect();
+      const fontSize = parseFloat(getComputedStyle(el).fontSize);
+      const lines = box.height / fontSize;
+      return lines > best.lines ? { lines, text: el.textContent.slice(0, 40) } : best;
+    }, { lines: 0, text: '' }));
+    assert.ok(tallest.lines > 1.5, `a long formula wraps onto multiple lines at 390px: ${file} (${tallest.lines.toFixed(2)} lines, ${tallest.text})`);
+  }
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('https://notes.test/');
   // The home page stays a cover: one panel per track, one card per subject,
