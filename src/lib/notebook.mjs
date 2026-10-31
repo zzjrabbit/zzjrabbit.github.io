@@ -72,6 +72,7 @@ export const SUBJECT_REGISTRY = [
   { key: 'typ/geometry', label: 'Geometry', blurb: 'Differential forms, curvature and the calculus of smooth spaces.' },
   { key: 'typ/lie', label: 'Lie theory', blurb: 'Groups, their linearizations, and the symmetry behind functional equations.' },
   { key: 'typ/inequalities', label: 'Inequalities', blurb: 'Comparisons and bounds between quantities, and the estimates that make each one rigorous.' },
+  { key: 'typ/problems', label: 'Problems', blurb: 'Olympiad problems and functional equations, with complete solutions and Lean formalisations.' },
   { key: 'models', label: 'Mathematical modeling', blurb: 'Small optimisation and simulation models, with their assumptions stated up front.' },
   { key: 'phys/dynamics', label: 'Dynamics', blurb: 'Forces, momentum and energy, and how an equation of motion is set up and solved.' },
   { key: 'phys/statics', label: 'Statics', blurb: 'Equilibrium of forces and moments, and the conditions under which nothing moves.' },
