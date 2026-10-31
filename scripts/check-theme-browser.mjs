@@ -46,8 +46,8 @@ try {
   await page.getByRole('button', { name: 'Menu', exact: true }).click();
   await choose('light');
   assert.equal(await theme(), 'light');
-  // MathJax re-typesets after the article column changes width, so a viewport
-  // resize can leave wide formulas on their old line breaks for a frame.
+  // Formula variants switch with the article container width; let layout settle
+  // before asserting that the resized page has no horizontal overflow.
   await page.waitForFunction(() => document.documentElement.scrollWidth <= innerWidth);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   assert.deepEqual(errors, []);

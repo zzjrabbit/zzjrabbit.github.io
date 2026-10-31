@@ -12,46 +12,37 @@ const trackFiles = library.tracks.map(track => track.href.slice(1));
 // CI installs Playwright's pinned Chromium; local Nix users can use the system browser.
 const executablePath = process.env.CHROMIUM_BIN || (process.env.CI ? undefined : execFileSync('sh', ['-c', 'command -v chromium || command -v chromium-browser'], { encoding: 'utf8' }).trim());
 const browser = await chromium.launch({ executablePath, headless: true });
-// How far each prime clears the letter it belongs to, in ems of its formula:
-// heights are measured above the base's own baseline, so a positive clearance
-// means the apostrophe floats above the letter's ink — the bug this guards.
-const primeClearances = page => page.locator('msup > .math-prime, msubsup > .math-prime').evaluateAll(nodes => nodes.map(node => {
-  const base = node.parentElement.firstElementChild;
-  const em = parseFloat(getComputedStyle(node.closest('math')).fontSize);
-  const baseBox = base.getBoundingClientRect(), primeBox = node.getBoundingClientRect();
-  return {
-    base: base.textContent,
-    inkBottom: +((baseBox.bottom - primeBox.bottom) / em).toFixed(3),
-    clearance: +(((baseBox.bottom - primeBox.bottom) - (baseBox.bottom - baseBox.top)) / em).toFixed(3),
-  };
-}));
-// MathJax typesets asynchronously after the page and web fonts load. Measure
-// only after its startup promise has settled, or a page that is still switching
-// from native MathML to CHTML can look like it is missing formulas.
+// Formulas are static CHTML in the document already; only the web fonts still
+// arrive asynchronously. Waiting for them keeps the geometry assertions stable.
 const mathReady = async target => {
-  await target.evaluate(async () => {
-    await document.fonts.ready;
-    await window.MathJax?.startup?.promise;
-  });
+  await target.evaluate(() => document.fonts.ready);
   await target.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done))));
 };
 const readMathState = target => target.evaluate(() => {
   const containers = [...document.querySelectorAll('.typst-article mjx-container')];
+  const wrappers = [...document.querySelectorAll('.typst-article .math-rendered')];
+  const visible = el => el.getClientRects().length > 0;
+  const shown = containers.filter(visible);
   return {
-    containers: containers.length,
+    wrappers: wrappers.length,
+    containers: shown.length,
+    variants: containers.length,
+    missingVariant: wrappers.filter(wrapper => [...wrapper.children].filter(visible).length !== 1).length,
     native: document.querySelectorAll('.typst-article math').length,
+    runtime: Boolean(window.MathJax),
     wrongOutput: containers.filter(el => el.getAttribute('jax') !== 'CHTML').length,
-    wrongOverflow: containers.filter(el => el.getAttribute('overflow') !== 'linebreak').length,
-    scrollContainers: containers.filter(el => ['auto', 'scroll'].includes(getComputedStyle(el).overflowX)).length,
-    overflowing: containers.filter(el => el.scrollWidth > el.clientWidth + 1).length,
-    outsideViewport: containers.filter(el => {
+    wrongOverflow: shown.filter(el => el.getAttribute('overflow') !== 'linebreak').length,
+    scrollContainers: shown.filter(el => ['auto', 'scroll'].includes(getComputedStyle(el).overflowX)).length,
+    overflowing: shown.filter(el => el.scrollWidth > el.clientWidth + 1).length,
+    outsideViewport: shown.filter(el => {
       const box = el.getBoundingClientRect();
       return box.left < -1 || box.right > innerWidth + 1;
     }).length,
-    inlineMargins: containers.filter(el => el.getAttribute('display') !== 'true' && (parseFloat(getComputedStyle(el).marginTop) !== 0 || parseFloat(getComputedStyle(el).marginBottom) !== 0)).length,
+    inlineMargins: shown.filter(el => el.getAttribute('display') !== 'true' && (parseFloat(getComputedStyle(el).marginTop) !== 0 || parseFloat(getComputedStyle(el).marginBottom) !== 0)).length,
   };
 });
 const errors = [];
+const mathRuntimeRequests = [];
 let context;
 let page;
 try {
@@ -70,6 +61,10 @@ try {
   page = await context.newPage();
   page.on('pageerror', error => errors.push(error.message));
   page.on('requestfailed', request => errors.push(`${request.url()}: ${request.failure()?.errorText}`));
+  page.on('request', request => {
+    const pathname = new URL(request.url()).pathname;
+    if (/^\/mathjax\/(?:mml|tex|sre|.*\.js)/.test(pathname)) mathRuntimeRequests.push(pathname);
+  });
   for (const width of [320, 390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     for (const file of ['index.html', 'notes.html', subjectFiles[0], trackFiles[0], 'about.html', 'typ/lie/cover_linear.html', 'typ/real/func_eq_fdts.html']) {
@@ -77,13 +72,15 @@ try {
       await mathReady(page);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${width}px overflow: ${file}`);
       assert.equal(await page.locator('h1').count(), 1);
-      // A note's native MathML is the no-JS fallback; MathJax replaces every
-      // formula with one CHTML container. Those containers must neither inherit
-      // the old display wrapper's block spacing nor turn into scroll areas.
+      // Every formula is already static CHTML. Exactly one break variant may be
+      // visible at a time, and the shown container must neither inherit block
+      // spacing when inline nor turn into a scroll area.
       const mathState = await readMathState(page);
       if (file.startsWith('typ/')) {
-        assert.ok(mathState.containers > 0, `${width}px: MathJax typesets ${file}`);
-        assert.equal(mathState.native, 0, `${width}px: MathJax replaces every native MathML formula: ${file}`);
+        assert.ok(mathState.containers > 0, `${width}px: static CHTML renders ${file}`);
+        assert.equal(mathState.native, 0, `${width}px: no unrendered MathML remains: ${file}`);
+        assert.equal(mathState.runtime, false, `${width}px: no MathJax runtime is loaded: ${file}`);
+        assert.equal(mathState.missingVariant, 0, `${width}px: every formula shows exactly one variant: ${file}`);
         assert.equal(mathState.wrongOutput, 0, `${width}px: every formula uses CHTML: ${file}`);
         assert.equal(mathState.wrongOverflow, 0, `${width}px: every formula permits line breaking: ${file}`);
         assert.equal(mathState.scrollContainers, 0, `${width}px: formulas are not scroll containers: ${file}`);
@@ -103,14 +100,13 @@ try {
     loaded: [...document.fonts].filter(face => face.status === 'loaded').map(face => `${face.family} ${face.weight} ${face.style}`),
     prose: getComputedStyle(document.querySelector('.typst-article')).fontFamily,
     math: getComputedStyle(document.querySelector('.typst-article mjx-math')).fontFamily,
-    config: window.MathJax?.config?.output,
+    runtime: Boolean(window.MathJax),
   }));
   assert.ok(faces.loaded.includes('STIX Two Text 400 normal'), `STIX Two Text is delivered and loaded: ${faces.loaded.join(', ')}`);
   assert.match(faces.prose, /^['"]?STIX Two Text/, 'prose is set in the bundled serif');
   assert.match(faces.math, /MJX-STX/, 'mathematics is set in MathJax\'s bundled STIX2 face');
   assert.ok(faces.loaded.some(face => /^MJX-STX-\S+ normal normal$/.test(face)), `MathJax STIX2 is delivered and loaded: ${faces.loaded.join(', ')}`);
-  assert.equal(faces.config?.displayOverflow, 'linebreak', 'display formulas use MathJax line breaking');
-  assert.equal(faces.config?.linebreaks?.inline, true, 'inline formulas may break across lines');
+  assert.equal(faces.runtime, false, 'formulas are already typeset; no MathJax runtime is requested');
   // Metrics of a math specimen, against the platform's own fallback: identical
   // widths would mean the bundled face never rendered.
   const specimen = await page.evaluate(() => {
@@ -127,7 +123,8 @@ try {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto('https://notes.test/about.html');
   await page.screenshot({ path: '.generated/screenshots/about-desktop.png', fullPage: true });
-  // Native MathML remains in the document as the no-JavaScript fallback.
+  // Static CHTML is the primary representation, so formulas must be complete
+  // even when scripts are disabled entirely.
   const noJS = await browser.newContext({ javaScriptEnabled: false });
   const staticPage = await noJS.newPage();
   await staticPage.route('https://notes.test/**', async route => {
@@ -137,22 +134,15 @@ try {
       contentType: types[path.extname(file)] || 'text/html' });
   });
   await staticPage.goto('https://notes.test/typ/lie/cover_linear.html');
-  assert.ok(await staticPage.locator('math').count());
-  assert.equal(await staticPage.locator('math *').evaluateAll(nodes =>
-    nodes.some(node => parseFloat(getComputedStyle(node).marginTop) !== 0)), false);
-  // The prime correction is build-time CSS, so it must hold with no script at all.
-  const staticPrimes = await primeClearances(staticPage);
-  assert.ok(staticPrimes.length, 'primes remain marked without JavaScript');
-  for (const prime of staticPrimes) {
-    assert.ok(prime.clearance <= 0.01, `without JavaScript the prime in ${prime.base}' floats above the letter (${prime.clearance}em)`);
-  }
+  assert.ok(await staticPage.locator('.typst-article mjx-container').count());
+  assert.equal(await staticPage.locator('.typst-article math').count(), 0, 'formulas need no browser-side MathML conversion');
+  assert.ok((await staticPage.locator('.typst-article .math-rendered').first().textContent()).trim(), 'formula content is present without scripts');
   await noJS.close();
   // Every note must keep all of its formulas inside the text column at every
-  // viewport: MathJax breaks long formulas at operators instead of scaling them
-  // down or putting them in a horizontal scroll container. The source HTML
-  // still carries one <math> per formula; MathJax turns each into one CHTML
-  // container without dropping or duplicating any.
-  const sourceMath = new Map(notes.map(note => [note.file, (note.html.match(/<math\b/g) || []).length]));
+  // viewport: the build-time line breaker selects a narrow enough variant
+  // instead of scaling formulas down or putting them in a scroll container.
+  // Each source formula becomes one wrapper with exactly one visible variant.
+  const sourceMath = new Map(notes.map(note => [note.file, note.mathCount]));
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     for (const note of notes) {
@@ -160,8 +150,11 @@ try {
       await mathReady(page);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${width}px page overflow: ${note.file}`);
       const state = await readMathState(page);
-      assert.equal(state.native, 0, `${width}px: MathJax replaces every native MathML formula: ${note.file}`);
-      assert.equal(state.containers, sourceMath.get(note.file), `${width}px: one CHTML container per formula: ${note.file}`);
+      assert.equal(state.native, 0, `${width}px: no unrendered MathML remains: ${note.file}`);
+      assert.equal(state.runtime, false, `${width}px: no MathJax runtime is loaded: ${note.file}`);
+      assert.equal(state.wrappers, sourceMath.get(note.file), `${width}px: one wrapper per source formula: ${note.file}`);
+      assert.equal(state.containers, sourceMath.get(note.file), `${width}px: one visible CHTML container per formula: ${note.file}`);
+      assert.equal(state.missingVariant, 0, `${width}px: every formula has one visible break variant: ${note.file}`);
       assert.equal(state.wrongOutput, 0, `${width}px: every formula uses CHTML: ${note.file}`);
       assert.equal(state.wrongOverflow, 0, `${width}px: every formula permits line breaking: ${note.file}`);
       assert.equal(state.scrollContainers, 0, `${width}px: formulas are not scroll containers: ${note.file}`);
@@ -170,20 +163,18 @@ try {
       assert.equal(state.inlineMargins, 0, `${width}px: inline formulas carry no block margin: ${note.file}`);
     }
   }
-  // A wide inline formula must actually occupy more than one line at phone width.
-  // Its height is measured against its own font size so the check survives type
-  // scale changes; the former fit-to-column code produced one narrow line here.
+  // A wide formula must actually have more than one precomputed line at phone
+  // width. CHTML deliberately sets line-height: 0 on the root, so counting the
+  // generated line boxes is more reliable than measuring container height.
   await page.setViewportSize({ width: 390, height: 844 });
   for (const file of ['typ/problems/fe_finite_set.html', 'phys/dynamics/sling.html']) {
     await page.goto(`https://notes.test/${file}`);
     await mathReady(page);
-    const tallest = await page.locator('.typst-article mjx-container').evaluateAll(containers => containers.reduce((best, el) => {
-      const box = el.getBoundingClientRect();
-      const fontSize = parseFloat(getComputedStyle(el).fontSize);
-      const lines = box.height / fontSize;
+    const tallest = await page.locator('.typst-article mjx-container').evaluateAll(containers => containers.filter(el => el.getClientRects().length).reduce((best, el) => {
+      const lines = el.querySelectorAll('mjx-linestack > mjx-linebox').length;
       return lines > best.lines ? { lines, text: el.textContent.slice(0, 40) } : best;
     }, { lines: 0, text: '' }));
-    assert.ok(tallest.lines > 1.5, `a long formula wraps onto multiple lines at 390px: ${file} (${tallest.lines.toFixed(2)} lines, ${tallest.text})`);
+    assert.ok(tallest.lines > 1, `a long formula wraps onto multiple lines at 390px: ${file} (${tallest.lines} lines, ${tallest.text})`);
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('https://notes.test/');
@@ -303,6 +294,7 @@ try {
   await page.locator('.pagefind-ui__search-input').fill('Continuity');
   await page.locator('.pagefind-ui__result-link').first().waitFor();
   assert.ok((await page.locator('.pagefind-ui__result-link').allTextContents()).some(text => text.includes('Continuity')));
+  assert.deepEqual(mathRuntimeRequests, [], 'notes never request a MathJax runtime or speech worker');
   assert.deepEqual(errors, []);
   console.log('OK: 5 viewport widths, home tracks/subject cover, complete index, track and subject pages, long notes, mobile menu/Escape, themes, live search, no page errors');
   await context.tracing.stop();

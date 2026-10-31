@@ -2,6 +2,7 @@ import { readFile, writeFile, mkdir, readdir, cp, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { load } from 'cheerio';
 import { buildLibrary, normaliseTrackKey, subjectKey, TRACK_REGISTRY } from '../src/lib/notebook.mjs';
+import { createMathRenderer, mathFontDirectory, mathStylesheet, renderMathHtml } from './render-math.mjs';
 
 export function extractNote(html, file) {
   const $ = load(html);
@@ -20,23 +21,10 @@ export function extractNote(html, file) {
     return { depth: Number(el.tagName.slice(1)), slug, text: node.text() };
   });
   // Starlight's generic sibling spacing also matches MathML nodes (scripts,
-  // fractions, matrix cells). Opt only math out; retain Typst's math CSS and
-  // Starlight typography for the surrounding article. Do this at build time
-  // so native math remains correct before JS runs and with JS disabled.
+  // fractions, matrix cells). Opt only math out before it is replaced with
+  // static CHTML below; the surrounding article keeps Typst's CSS and
+  // Starlight's typography.
   main.find('math').addClass('not-content');
-  // A prime is an attachment, but MathML only offers an ordinary superscript:
-  // the browser raises it by the superscript shift while math fonts already
-  // draw U+2032 high inside its own em box. `f'` therefore rendered with the
-  // apostrophe above the `f`, clear of its ascender. Mark prime superscripts
-  // so the stylesheet can lower them to the superscript position; the mark is
-  // added at build time, so the correction also holds with JavaScript disabled.
-  const primes = /^[\u2032-\u2037]+$/;
-  main.find('msup, msubsup').each((_, el) => {
-    const superscript = $(el).children().last();
-    (superscript.is('mo') ? superscript : superscript.find('mo'))
-      .filter((__, mo) => primes.test($(mo).text()))
-      .addClass('math-prime');
-  });
   // A Typst frame names its glyph symbols after a hash of the glyph, so two
   // diagrams on one page define the same `id` twice and the second diagram's
   // `<use>` resolves into the first one's `<symbol>`. Namespace each diagram's
@@ -254,22 +242,14 @@ async function readSubjectManifests(files) {
   return manifests;
 }
 
-// MathJax ships as browser components plus a font package. Copy only the MML
-// input/CHTML output component, the STIX2 web font and the speech worker the
-// component requests; MathJax's loader resolves the dynamic ranges and WOFF2
-// files from the two configured directories at runtime.
-async function copyMathJax() {
+// Static CHTML only needs MathJax's stylesheet and the STIX2 font files.  No
+// browser component, speech worker or font-range loader is shipped any more.
+async function copyMathJaxAssets(renderer) {
   const root = path.join('.generated/public/mathjax');
-  const font = path.join(root, 'mathjax-stix2-font');
-  await mkdir(path.join(root, 'sre/mathmaps'), { recursive: true });
-  await mkdir(font, { recursive: true });
-  await cp('node_modules/mathjax/mml-chtml-nofont.js', path.join(root, 'mml-chtml-nofont.js'));
-  await cp('node_modules/mathjax/sre/speech-worker.js', path.join(root, 'sre/speech-worker.js'));
-  for (const locale of ['base', 'en', 'nemeth']) {
-    await cp(`node_modules/mathjax/sre/mathmaps/${locale}.json`, path.join(root, `sre/mathmaps/${locale}.json`));
-  }
-  await cp('node_modules/@mathjax/mathjax-stix2-font/chtml.js', path.join(font, 'chtml.js'));
-  await cp('node_modules/@mathjax/mathjax-stix2-font/chtml', path.join(font, 'chtml'), { recursive: true });
+  const fonts = path.join(root, 'mathjax-stix2-font/chtml/woff2');
+  await mkdir(fonts, { recursive: true });
+  await cp(mathFontDirectory(renderer), fonts, { recursive: true });
+  await writeFile(path.join(root, 'chtml.css'), await mathStylesheet(renderer));
 }
 
 async function walk(dir, base = '') {
@@ -286,6 +266,7 @@ async function prepare() {
   const input = '_calepin';
   const files = await walk(input);
   const siteFiles = await walk('site');
+  const mathRenderer = await createMathRenderer({ cwd: path.resolve('.') });
   // Calepin does not publish Lean sources; discover the synchronized repository
   // files directly and link to GitHub's readable, syntax-highlighted source.
   const leanFiles = new Set(siteFiles.filter(file => file.startsWith('lean/') && file.endsWith('.lean')));
@@ -298,6 +279,7 @@ async function prepare() {
     if (file.endsWith('.html')) {
       if (file === 'index.html' || file === '404.html') continue;
       const note = extractNote(await readFile(path.join(input, file), 'utf8'), file);
+      const math = await renderMathHtml(note.html, mathRenderer);
       const pdf = file.replace(/\.html$/, '.pdf');
       if (!files.includes(pdf)) throw new Error(`Missing PDF: ${pdf}`);
       // Site metadata: prefer Calepin's structured index, fall back to the
@@ -307,6 +289,8 @@ async function prepare() {
       if (!date) console.warn(`No date declared for ${file}; it will be filed last`);
       notes.push({
         ...note,
+        html: math.html,
+        mathCount: math.count,
         path: file.replace(/\.html$/, '.typ'),
         date,
         tags: normaliseTags(declared.tags),
@@ -339,7 +323,7 @@ async function prepare() {
   }
   // Hand-maintained public assets survive regeneration of the staging directory.
   await cp('public', '.generated/public', { recursive: true });
-  await copyMathJax();
+  await copyMathJaxAssets(mathRenderer);
   await writeFile('.generated/notes.json', JSON.stringify(notes));
   await writeFile('.generated/subjects.json', JSON.stringify(subjectManifests, null, 1));
   console.log(`Prepared ${notes.length} Typst articles for Starlight`);

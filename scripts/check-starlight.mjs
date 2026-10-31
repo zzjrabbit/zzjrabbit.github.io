@@ -47,10 +47,13 @@ for (const note of notes) {
   assert.deepEqual($('.note-context a').toArray().slice(0, 2).map(el => $(el).attr('href')),
     [`/tracks/${fileSubject.track.key}.html`, `/subjects/${fileSubject.slug}.html`],
     `${note.file}: track and subject breadcrumb`);
-  for (const selector of ['math', 'svg', '.note-environment']) {
+  for (const selector of ['svg', '.note-environment']) {
     assert.equal($('.typst-article').find(selector).length, original(selector).length, `${note.file}: ${selector} preserved`);
   }
-  assert.deepEqual($('.typst-article math').toArray().map(el => $(el).text()), original('math').toArray().map(el => original(el).text()), `${note.file}: formula content preserved`);
+  assert.equal($('.typst-article math').length, 0, `${note.file}: MathML was rendered at build time`);
+  assert.equal($('.typst-article .math-rendered').length, note.mathCount, `${note.file}: one wrapper per source formula`);
+  assert.equal($('.typst-article .math-rendered > .math-variant').length >= note.mathCount, true, `${note.file}: every formula has a static CHTML variant`);
+  assert.equal($('.typst-article mjx-container:not([jax="CHTML"])').length, 0, `${note.file}: formulas use CHTML`);
   assert.ok($('site-search').length, `${note.file}: Starlight search`);
   assert.ok($('button[popovertarget="starlight__sidebar"]').length, `${note.file}: mobile navigation`);
   for (const heading of note.headings) assert.ok($(`[id="${heading.slug}"]`).length, `Missing anchor ${heading.slug}`);
@@ -110,6 +113,8 @@ assert.equal(home('#starlight__sidebar .track-empty').length, library.tracks.fil
 assert.equal(index('.note-row').length, notes.length, 'index lists every note exactly once');
 assert.equal(index('.notes-section').length, library.subjects.length, 'index has one section per subject');
 await access('_site/pagefind/pagefind.js');
+await access('_site/mathjax/chtml.css');
+await assert.rejects(access('_site/mathjax/mml-chtml-nofont.js'), 'browser MathJax runtime must not be published');
 await access('_site/index.html');
 await access('_site/about.html');
 await access('_site/notes.html');
@@ -143,4 +148,4 @@ for (const file of publicPages) {
 }
 await assert.rejects(access('_site/atom.xml'), 'Atom feed must not be published');
 await validateRelease('_site', notes, 'https://zzjrabbit.github.io', ['about.html', 'notes.html', ...library.tracks.map(trackFile), ...library.subjects.map(subjectFile)]);
-console.log(`OK: ${notes.length} notes in ${library.subjects.length} subjects across ${library.tracks.length} tracks, index/subject/track pages, local resources/anchors, canonical/sitemap, MathML/SVG, unchanged PDFs and search bundle`);
+console.log(`OK: ${notes.length} notes in ${library.subjects.length} subjects across ${library.tracks.length} tracks, index/subject/track pages, local resources/anchors, canonical/sitemap, static CHTML/SVG, unchanged PDFs and search bundle`);

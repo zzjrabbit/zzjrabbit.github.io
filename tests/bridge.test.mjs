@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { load } from 'cheerio';
 import { extractNote, leanSourceFor, normaliseTags, parseSiteMetadata } from '../scripts/prepare-starlight.mjs';
+import { createMathRenderer, mathStylesheet, renderMathHtml } from '../scripts/render-math.mjs';
 
 test('links only exact companion Lean files for Typst notes', () => {
   const files = new Set(['lean/topology/continuous.lean', 'lean/Main.lean', 'lean/real/a b.lean']);
@@ -33,6 +34,26 @@ test('retains mathematics, SVG, old anchors and relative links without Markdown 
   assert.equal($('a').attr('href'), '../other.html#result');
   assert.deepEqual(note.headings.map(h => h.slug), ['existing', 'section-2']);
   assert.equal(note.source, '#let x = 2');
+});
+
+test('renders MathML to static CHTML without a browser runtime', async () => {
+  const renderer = await createMathRenderer();
+  const rendered = await renderMathHtml(`
+    <p>Here <math><mi>x</mi><mo>+</mo><mn>1</mn></math> and</p>
+    <math display="block"><mfrac><mi>a</mi><mi>b</mi></mfrac></math>`, renderer);
+  const $ = load(rendered.html);
+  assert.equal(rendered.count, 2);
+  assert.equal($('math').length, 0, 'MathML is consumed at build time');
+  assert.equal($('.math-rendered').length, 2, 'one wrapper per source formula');
+  assert.equal($('.math-rendered > .math-variant.is-compact').length, 2, 'every formula has a compact text-zoom variant');
+  assert.equal($('.math-variant.is-compact mjx-container[overflow="scale"]').length, 2, 'the text-zoom variant falls back to scaling');
+  assert.equal($('mjx-container:not([jax="CHTML"])').length, 0);
+  assert.equal($('mjx-container[overflow="linebreak"]').length >= 2, true);
+  assert.ok($('.math-rendered[data-display="true"] mjx-container[display="true"]').length);
+  const css = await mathStylesheet(renderer);
+  assert.match(css, /@font-face/);
+  assert.match(css, /\/mathjax\/mathjax-stix2-font\/chtml\/woff2\/mjx-stx-n\.woff2/);
+  assert.doesNotMatch(css, /node_modules/);
 });
 test('diagram ink follows the theme without inverting semantic colors or masks', () => {
   const note = extractNote(`<main class="calepin-website-main"><h1>Diagram</h1>
@@ -77,24 +98,6 @@ test('every diagram on a page keeps unique ids for its own symbols', () => {
     ['note-diagram-1-g1A', 'note-diagram-2-g1A']);
   assert.equal($('svg').eq(0).find('g').attr('clip-path'), 'url(#note-diagram-1-g1A)');
   assert.equal($('svg').eq(1).find('path[fill]').attr('fill'), 'url(#note-diagram-2-g1A)');
-});
-
-test('marks prime superscripts, and only prime superscripts, for the stylesheet', () => {
-  const note = extractNote(`<main class="calepin-website-main"><h1>Primes</h1>
-    <p>Let <math><msup><mi>f</mi><mo>\u2032</mo></msup></math> and <math><msup><mi>c</mi><mo>\u2032\u2032</mo></msup></math>.</p>
-    <p><math><msubsup><mi>f</mi><mi>x</mi><mo>\u2032</mo></msubsup></math> and <math><msup><mi>f</mi><mo>\u2032</mo></msup><msub><mi>x</mi><mn>0</mn></msub></math></p>
-    <math display="block"><msup><mi>H</mi><mo>\u2032</mo></msup><mrow><mo>(</mo><mi>a</mi><mo>)</mo></mrow></math>
-    <p><math><msup><mi>f</mi><mn>2</mn></msup><msup><mi>f</mi><mo>+</mo></msup><mo>\u2032</mo><mi>x</mi></math></p>
-  </main>`, 'typ/primes.html');
-  const $ = load(note.html);
-  assert.equal($('.math-prime').length, 5);
-  assert.deepEqual($('.math-prime').toArray().map(el => $(el).text()), ['\u2032', '\u2032\u2032', '\u2032', '\u2032', '\u2032']);
-  assert.ok($('msubsup > .math-prime').length, 'a subscripted base still marks its prime');
-  assert.equal($('msub > .math-prime').length, 0, 'subscripts stay where they are');
-  assert.equal($('msup > mn.math-prime').length, 0, 'exponents are not primes');
-  assert.equal($('msup > mo.math-prime:not(:last-child)').length, 0, 'a plus-sign superscript is untouched');
-  assert.equal($('mo.math-prime').not('msup > *, msubsup > *').length, 0, 'a prime that is not an attachment keeps its own position');
-  assert.equal($('math').filter((_, el) => !$(el).hasClass('not-content')).length, 0);
 });
 
 test('fails explicitly on missing article or heading', () => {

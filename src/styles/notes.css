@@ -1,9 +1,6 @@
-/* Serif text and mathematics are self-hosted, so the same faces render the
-   notes on every platform: the stacks below name fonts a reader may not have,
-   and the browser then falls back family by family — on a bare Linux box Latin
-   prose came from a CJK serif while formulas mixed FreeSerif letters with
-   Liberation Serif primes. STIX Two Text and STIX Two Math share one design, so
-   prose and equations stay a serif pair. SIL OFL 1.1, see public/fonts/OFL.txt. */
+/* Serif text is self-hosted so prose renders the same on every platform. The
+   static CHTML stylesheet supplies the matching STIX2 math faces. SIL OFL 1.1,
+   see public/fonts/OFL.txt. */
 @font-face {
   font-family: 'STIX Two Text';
   src: url('/fonts/stix-two-text-latin-400-normal.woff2') format('woff2');
@@ -23,11 +20,6 @@
   font-family: 'STIX Two Text';
   src: url('/fonts/stix-two-text-latin-700-italic.woff2') format('woff2');
   font-weight: 700; font-style: italic; font-display: swap;
-}
-@font-face {
-  font-family: 'STIX Two Math';
-  src: url('/fonts/stix-two-math.woff2') format('woff2');
-  font-weight: 400; font-style: normal; font-display: swap;
 }
 :root {
   --sl-color-accent-low: #412a24;
@@ -260,7 +252,13 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
   .note-card, .note-tools a { transition: none; }
   .note-card:focus-within, .note-card:hover { transform: none; }
 }
-.typst-article { font-family: var(--notebook-serif); font-size: 1.125rem; line-height: 1.9; overflow-wrap: anywhere; }
+.typst-article {
+  font-family: var(--notebook-serif); font-size: 1.125rem; line-height: 1.9; overflow-wrap: anywhere;
+  /* Static formula variants are selected by the real width of the article,
+     not by a viewport guess: the sidebar and page padding both change it. */
+  container-name: article;
+  container-type: inline-size;
+}
 .typst-article :is(h2,h3,h4,.note-environment-title) { font-family: var(--sl-font); }
 .typst-article :is(img,svg) { max-width: 100%; height: auto; }
 /* Inherit theme ink even for SVG shapes with the default (implicit black) fill. */
@@ -283,26 +281,41 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
 .typst-article .note-diagram-block > svg { max-width: 100%; height: auto; }
 .typst-article pre, .note-source pre { overflow-x: auto; padding: 1rem; background: var(--sl-color-bg-sidebar); }
 .typst-article table { display: block; max-width: 100%; overflow-x: auto; }
-/* MathML is the no-JavaScript fallback. On load MathJax replaces it with CHTML,
-   which can break long inline formulas across lines like the PDF. Descendants
-   opt out via not-content in the HTML bridge; do not reset their margins/padding
-   wholesale (Typst uses these for fractions and matrices). */
-.typst-article math { font-family: 'STIX Two Math', 'Libertinus Math', 'Cambria Math', 'Noto Serif CJK SC', 'Songti SC', math; font-size: 1.15em; overflow-wrap: normal; margin: 0; }
-/* A prime is an attachment, but MathML only has ordinary superscripts: the
-   browser raises the prime by the superscript shift while STIX Two Math already
-   draws U+2032 high in its own em box, so `f'` put the apostrophe above the `f`,
-   clear of its ascender. Lower prime superscripts to the position the notes'
-   own Typst rendering uses — the prime's ink starts at the x-height line (in
-   the 40pt reference, ink bottom 0.444em against x-height 0.450em), which this
-   offset reproduces here. `em` is the prime's script font size, and priming
-   reads the same at any size. prepare-starlight.mjs adds the class at build
-   time, so the position holds before JavaScript runs and with it disabled. */
-.typst-article math .math-prime { position: relative; top: .12em; }
+/* Formulas are typeset to CHTML during the build. Each formula carries one or
+   more break variants; only the one that fits the article container is
+   displayed. There is no client-side MathJax pass, so the first paint is the
+   final formula and resizing switches variants without re-typesetting. */
+.math-rendered { display: inline; max-width: 100%; }
+.math-rendered[data-display='true'] { display: block; }
+.math-variant { display: none; }
+.math-variant.is-compact { display: inline; }
+.math-rendered[data-display='true'] > .math-variant.is-compact { display: block; }
+/* `em` here is relative to the article's computed font size, so text zoom
+   switches to the compact breaks before the enlarged formula can outgrow the
+   column. The wider tiers use rem and therefore follow the reader's text size
+   as well: enlarging text does not accidentally select a desktop variant. */
+@container article (min-width: 12.01em) {
+  .math-variant.is-compact { display: none; }
+  .math-rendered[data-display='true'] > .math-variant.is-compact { display: none; }
+  .math-variant.is-narrow { display: inline; }
+  .math-rendered[data-display='true'] > .math-variant.is-narrow { display: block; }
+}
+@container article (min-width: 32.01rem) {
+  .math-variant.is-narrow { display: none; }
+  .math-rendered[data-display='true'] > .math-variant.is-narrow { display: none; }
+  .math-variant.is-medium { display: inline; }
+  .math-rendered[data-display='true'] > .math-variant.is-medium { display: block; }
+}
+@container article (min-width: 48.01rem) {
+  .math-variant.is-medium { display: none; }
+  .math-rendered[data-display='true'] > .math-variant.is-medium { display: none; }
+  .math-variant.is-wide { display: inline; }
+  .math-rendered[data-display='true'] > .math-variant.is-wide { display: block; }
+}
 /* Display math keeps the root 23px, scaled by the same dial as the body so
-   equations stay a step above the prose around them. */
-.typst-article math[display='block'] { font-size: calc(1.4375rem * var(--notebook-type-scale)); max-width: 100%; }
-/* MathJax's CHTML containers inherit the same two sizes. Its line-breaking
-   engine chooses the breaks, so no formula gets a horizontal scrollbar. */
+   equations stay a step above the prose around them. CHTML's line-breaking
+   engine chose the breaks for the regular variants; the text-zoom compact
+   variant scales only a formula that has no remaining break opportunity. */
 .typst-article mjx-container[jax='CHTML'] { font-size: 1.15em; max-width: 100%; }
 .typst-article mjx-container[jax='CHTML']:not([display='true']) { margin-block: 0; }
 .typst-article mjx-container[jax='CHTML'][display='true'] { font-size: calc(1.4375rem * var(--notebook-type-scale)); }

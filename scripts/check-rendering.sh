@@ -11,7 +11,8 @@ perl -0777 -e '
   for my $class (qw(note-theorem note-proof)) {
     die "Missing semantic environment: $class\n" unless $continuous =~ /<section class="note-environment $class"/;
   }
-  die "Native MathML missing\n" unless $continuous =~ /<math\b/;
+  die "Static CHTML missing\n" unless $continuous =~ /<mjx-container\b[^>]*jax="CHTML"/;
+  die "Browser-side MathJax runtime is still referenced\n" if $continuous =~ m{/mathjax/(?:mml|tex|sre).*\.js};
 
   # Every note that draws with CeTZ must reach its page as vector diagrams.
   # The synchronizer points those imports at themes/site/cetz.typ, and Typst
@@ -44,5 +45,5 @@ perl -0777 -e '
   }
   die "No CeTZ page found: does the synchronizer still rewrite CeTZ imports to themes/site/cetz.typ?\n"
     unless $checked;
-  print "OK: semantic statements/proofs, native MathML and $checked CeTZ page(s) with Typst SVG\n";
+  print "OK: semantic statements/proofs, static CHTML and $checked CeTZ page(s) with Typst SVG\n";
 ' "$root"

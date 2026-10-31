@@ -1,6 +1,12 @@
 ---
+import notes from '../../.generated/notes.json';
+
 const { head } = Astro.locals.starlightRoute;
 const is404 = /^\/404(?:\.html)?\/?$/.test(Astro.url.pathname);
+const path = Astro.url.pathname.replace(/^\/+/, '').replace(/\.html$/, '');
+const isNote = notes.some(note => note.file.replace(/\.html$/, '') === path);
 ---
 {head.map(({ tag: Tag, attrs, content }) => <Tag {...attrs} set:html={content} />)}
 {is404 && <meta name="robots" content="noindex, follow" />}
+<link rel="preload" href="/fonts/stix-two-text-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
+{isNote && <link rel="stylesheet" href="/mathjax/chtml.css" />}

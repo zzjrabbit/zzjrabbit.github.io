@@ -79,7 +79,7 @@ body { -webkit-font-smoothing: antialiased; }
 .calepin-website-main :is(img, svg) { max-width: 100%; }
 
 /* Mathematical reading: distinct statements and quieter proofs. Formula
-   rendering and line breaking live in src/styles/notes.css and MathJax. */
+   rendering and line breaking live in src/styles/notes.css and the static CHTML. */
 .note-environment {
   --environment-accent: var(--calepin-color-accent);
   margin-block: 1.8rem;
