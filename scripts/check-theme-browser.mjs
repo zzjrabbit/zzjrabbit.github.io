@@ -46,6 +46,9 @@ try {
   await page.getByRole('button', { name: 'Menu', exact: true }).click();
   await choose('light');
   assert.equal(await theme(), 'light');
+  // MathJax re-typesets after the article column changes width, so a viewport
+  // resize can leave wide formulas on their old line breaks for a frame.
+  await page.waitForFunction(() => document.documentElement.scrollWidth <= innerWidth);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   assert.deepEqual(errors, []);
   console.log('Theme browser checks passed: persistence, system changes, keyboard, mobile, SVG ink and semantic colors.');
