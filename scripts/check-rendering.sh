@@ -8,7 +8,7 @@ perl -0777 -e '
   my $root = shift;
   sub page { my ($path) = @_; open my $fh, "<", "$root/_site/$path" or die "$path: $!\n"; local $/; return <$fh>; }
   my $continuous = page("typ/topology/continuous.html");
-  for my $class (qw(note-plain note-proof)) {
+  for my $class (qw(note-theorem note-proof)) {
     die "Missing semantic environment: $class\n" unless $continuous =~ /<section class="note-environment $class"/;
   }
   die "Native MathML missing\n" unless $continuous =~ /<math\b/;
