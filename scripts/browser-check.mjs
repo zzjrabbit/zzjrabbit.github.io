@@ -28,6 +28,13 @@ const readMathState = target => target.evaluate(() => {
     containers: shown.length,
     variants: containers.length,
     missingVariant: wrappers.filter(wrapper => [...wrapper.children].filter(visible).length !== 1).length,
+    overlappingLines: shown.filter(container => [...container.querySelectorAll('mjx-linestack[breakable]')].filter(visible).some(stack => {
+      const lines = [...stack.querySelectorAll(':scope > mjx-linebox')].filter(visible);
+      return lines.some((line, index) => index && line.getBoundingClientRect().top < lines[index - 1].getBoundingClientRect().bottom - .5);
+    })).length,
+    unflowedInlineMath: shown.filter(container => container.getAttribute('display') !== 'true'
+      && container.querySelector('mjx-linestack[breakable]')
+      && getComputedStyle(container).display !== 'inline').length,
     native: document.querySelectorAll('.typst-article math').length,
     runtime: Boolean(window.MathJax),
     wrongOutput: containers.filter(el => el.getAttribute('jax') !== 'CHTML').length,
@@ -155,6 +162,8 @@ try {
       assert.equal(state.wrappers, sourceMath.get(note.file), `${width}px: one wrapper per source formula: ${note.file}`);
       assert.equal(state.containers, sourceMath.get(note.file), `${width}px: one visible CHTML container per formula: ${note.file}`);
       assert.equal(state.missingVariant, 0, `${width}px: every formula has one visible break variant: ${note.file}`);
+      assert.equal(state.overlappingLines, 0, `${width}px: wrapped formula lines do not overlap: ${note.file}`);
+      assert.equal(state.unflowedInlineMath, 0, `${width}px: wrapped inline formulas stay in the text flow: ${note.file}`);
       assert.equal(state.wrongOutput, 0, `${width}px: every formula uses CHTML: ${note.file}`);
       assert.equal(state.wrongOverflow, 0, `${width}px: every formula permits line breaking: ${note.file}`);
       assert.equal(state.scrollContainers, 0, `${width}px: formulas are not scroll containers: ${note.file}`);

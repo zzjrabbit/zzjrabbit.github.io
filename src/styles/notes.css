@@ -312,6 +312,14 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
   .math-variant.is-wide { display: inline; }
   .math-rendered[data-display='true'] > .math-variant.is-wide { display: block; }
 }
+/* CHTML resets line-height to 0 inside its inline-block wrapper. A breakable
+   line stack therefore lets successive lines overlap, while the wrapper keeps
+   the width of its longest precomputed line and pushes following punctuation
+   away from the final line. Restore a real line box and let breakable inline
+   formulas participate in the surrounding text flow. */
+.typst-article mjx-linestack[breakable] { line-height: 1.6; }
+.typst-article .math-rendered:not([data-display='true']) mjx-container:has(> mjx-math > mjx-linestack[breakable]),
+.typst-article .math-rendered:not([data-display='true']) mjx-math:has(> mjx-linestack[breakable]) { display: inline; }
 /* Display math keeps the root 23px, scaled by the same dial as the body so
    equations stay a step above the prose around them. CHTML's line-breaking
    engine chose the breaks for the regular variants; the text-zoom compact
