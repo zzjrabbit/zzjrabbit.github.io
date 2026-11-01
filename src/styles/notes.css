@@ -253,12 +253,14 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
   .note-card:focus-within, .note-card:hover { transform: none; }
 }
 .typst-article {
-  font-family: var(--notebook-serif); font-size: 1.125rem; line-height: 1.9; overflow-wrap: anywhere;
+  font-family: var(--notebook-serif); font-size: 1.125rem; line-height: 1.9; overflow-wrap: break-word;
   /* Static formula variants are selected by the real width of the article,
      not by a viewport guess: the sidebar and page padding both change it. */
   container-name: article;
   container-type: inline-size;
 }
+.typst-article :where(p, li) { text-align: justify; text-justify: inter-word; hyphens: auto; }
+.typst-article :is(.note-align-center, .note-align-start, .note-align-end) :where(p, li) { text-align: inherit; }
 .typst-article :is(h2,h3,h4,.note-environment-title) { font-family: var(--sl-font); }
 .typst-article :is(img,svg) { max-width: 100%; height: auto; }
 /* Inherit theme ink even for SVG shapes with the default (implicit black) fill. */
