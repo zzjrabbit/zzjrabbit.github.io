@@ -36,13 +36,18 @@
     canvas.font = fontFor(element);
     return canvas.measureText(text).width;
   };
-  // CHTML renders every glyph as an inline-block with nested text, so a range's
-  // client rect list contains overlapping duplicates. Summing those rects makes
-  // a formula look almost twice as wide as it is, and the line breaker then
-  // leaves half-empty lines which justification stretches into huge gaps. The
-  // bounding rect is the one measurement that includes MathJax's spacing
+  // A word may already be split across lines by the browser's fallback
+  // wrapping. Its bounding rect then spans the whole line, while summing the
+  // individual fragment widths recovers the width of the word itself.
+  const textRangeWidth = range => [...range.getClientRects()]
+    .reduce((width, rect) => width + rect.width, 0);
+  // CHTML renders every glyph as an inline-block with nested text, so the same
+  // client rect list contains overlapping duplicates in formula ranges.
+  // Summing those rects makes a formula look almost twice as wide as it is,
+  // and the line breaker then leaves half-empty lines which justification
+  // stretches into huge gaps. The bounding rect includes MathJax's spacing
   // margins without counting any glyph twice.
-  const rangeWidth = range => range.getBoundingClientRect().width;
+  const formulaRangeWidth = range => range.getBoundingClientRect().width;
   const boundary = (node, offset, formula = null) => ({ node, offset, formula });
 
   function restore(paragraph) {
@@ -65,7 +70,7 @@
         const range = document.createRange();
         range.setStart(math, start);
         range.setEnd(math, index);
-        nodes.push({ type: "box", width: rangeWidth(range), value: "math" });
+        nodes.push({ type: "box", width: formulaRangeWidth(range), value: "math" });
       }
       if (index < children.length) {
         // The zero-width span becomes a real word-space during justification,
@@ -132,7 +137,7 @@
           const range = document.createRange();
           range.setStart(node, part.index);
           range.setEnd(node, part.index + part[0].length);
-          nodes.push({ type: "box", width: rangeWidth(range), value: part[0] });
+          nodes.push({ type: "box", width: textRangeWidth(range), value: part[0] });
         }
       }
     }
