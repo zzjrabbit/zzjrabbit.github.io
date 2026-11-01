@@ -59,6 +59,24 @@ const readMathState = target => target.evaluate(() => {
     kpBadLastLine: kpLines.filter(line => !line.matches('.kp-section > .kp-line:last-child') && getComputedStyle(line).textAlignLast !== 'justify').length,
   };
 });
+// A justified line should fill most of its measure. Measuring the unbroken
+// width of each line is the direct check that a formula was not counted twice
+// during line breaking: duplicated glyph rects used to leave lines at 40–60%
+// fill, which justification then turned into enormous word gaps.
+const readLineFill = target => target.evaluate(() => {
+  const ratios = [...document.querySelectorAll('.typst-article .kp-line')]
+    .filter(line => !line.matches('.kp-section > .kp-line:last-child'))
+    .map(line => {
+      const clone = line.cloneNode(true);
+      clone.style.cssText = 'position:absolute;visibility:hidden;display:inline-block;width:max-content;white-space:nowrap;text-align:left;text-align-last:left;word-spacing:normal';
+      line.parentElement.append(clone);
+      const natural = clone.getBoundingClientRect().width;
+      const rendered = line.getBoundingClientRect().width;
+      clone.remove();
+      return rendered ? natural / rendered : 1;
+    });
+  return { lines: ratios.length, minimum: ratios.length ? Math.min(...ratios) : 1 };
+});
 const errors = [];
 const mathRuntimeRequests = [];
 let context;
@@ -202,8 +220,15 @@ try {
   await page.goto('https://notes.test/typ/problems/fe_finite_set.html');
   await mathReady(page);
   assert.ok(await page.locator('.kp-line').count() > 10, 'long note starts with PDF-style lines');
+  let lineFill = await readLineFill(page);
+  assert.ok(lineFill.lines > 5 && lineFill.minimum >= 0.8,
+    `formula-heavy lines fill their measure at 1024px (${lineFill.lines} lines, minimum ${lineFill.minimum.toFixed(2)})`);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.waitForFunction(() => document.querySelectorAll('.kp-line').length > 0, null, { timeout: 3000 });
+  await mathReady(page);
+  lineFill = await readLineFill(page);
+  assert.ok(lineFill.lines > 5 && lineFill.minimum >= 0.8,
+    `formula-heavy lines fill their measure at 1440px (${lineFill.lines} lines, minimum ${lineFill.minimum.toFixed(2)})`);
   assert.ok(await page.locator('.typst-article p[data-kp-layout]').count() > 0, 'resizing recomputes the line layout');
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'resized line layout stays inside the viewport');
   await page.evaluate(() => dispatchEvent(new Event('beforeprint')));

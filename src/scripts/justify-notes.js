@@ -36,11 +36,13 @@
     canvas.font = fontFor(element);
     return canvas.measureText(text).width;
   };
-  // A word may already be split across lines by the browser's fallback
-  // wrapping. Its bounding rect then spans the whole line, while summing the
-  // individual client rects recovers the width of the word itself.
-  const rangeWidth = range => [...range.getClientRects()]
-    .reduce((width, rect) => width + rect.width, 0);
+  // CHTML renders every glyph as an inline-block with nested text, so a range's
+  // client rect list contains overlapping duplicates. Summing those rects makes
+  // a formula look almost twice as wide as it is, and the line breaker then
+  // leaves half-empty lines which justification stretches into huge gaps. The
+  // bounding rect is the one measurement that includes MathJax's spacing
+  // margins without counting any glyph twice.
+  const rangeWidth = range => range.getBoundingClientRect().width;
   const boundary = (node, offset, formula = null) => ({ node, offset, formula });
 
   function restore(paragraph) {
