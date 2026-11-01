@@ -39,20 +39,31 @@ test('retains mathematics, SVG, old anchors and relative links without Markdown 
 test('renders MathML to static CHTML without a browser runtime', async () => {
   const renderer = await createMathRenderer();
   const rendered = await renderMathHtml(`
-    <p>Here <math><mi>x</mi><mo>+</mo><mn>1</mn></math> and</p>
+    <p>Here <math><mrow><mi>x</mi><mo>+</mo><mi>y</mi><mo>+</mo><mi>z</mi><mo>+</mo><mi>w</mi><mo>+</mo><mi>v</mi></mrow></math> and</p>
+    <p>also <math><mi>π</mi></math>.</p>
     <math display="block"><mfrac><mi>a</mi><mi>b</mi></mfrac></math>`, renderer);
   const $ = load(rendered.html);
-  assert.equal(rendered.count, 2);
+  assert.equal(rendered.count, 3);
   assert.equal($('math').length, 0, 'MathML is consumed at build time');
-  assert.equal($('.math-rendered').length, 2, 'one wrapper per source formula');
-  assert.equal($('.math-rendered > .math-variant.is-compact').length, 2, 'every formula has a compact text-zoom variant');
-  assert.equal($('.math-variant.is-compact mjx-container[overflow="scale"]').length, 2, 'the text-zoom variant falls back to scaling');
+  assert.equal($('.math-rendered').length, 3, 'one wrapper per source formula');
+  assert.equal($('.math-rendered[data-display="false"] > mjx-container').length, 1,
+    'a breakable inline formula is emitted once');
+  assert.ok($('.math-rendered[data-display="false"] mjx-break').length >= 2,
+    'MathJax exposes browser break points inside the inline formula');
+  const breakTexts = $('.math-rendered[data-display="false"] mjx-break').toArray().map(el => $(el).text());
+  assert.ok(breakTexts.every(text => text === '\u200B'),
+    'inline break points contain a zero-width space, never stretchable ASCII space');
+  assert.equal($('.math-rendered[data-layout="inline-fallback"]').length, 1,
+    'only an inline formula without operators keeps a width-specific fallback');
+  assert.equal($('.math-rendered[data-layout="inline-fallback"] .math-variant.is-compact').length, 1,
+    'the fallback still has its compact text-zoom variant');
+  assert.equal($('.math-rendered[data-layout="inline-fallback"] .math-variant.is-compact mjx-container[overflow="scale"]').length, 1,
+    'the text-zoom fallback scales instead of overflowing');
   assert.equal($('mjx-container:not([jax="CHTML"])').length, 0);
   assert.equal($('mjx-container[overflow="linebreak"]').length >= 2, true);
-  assert.ok($('.math-rendered[data-display="false"] wbr').length >= 1,
-    'inline formulas expose break opportunities at their top-level operators');
-  assert.equal($('.math-rendered[data-display="true"] wbr').length, 0,
-    'display formulas keep their own line-breaking layout');
+  assert.equal($('wbr').length, 0, 'inline breaks are native mjx-break elements, not inserted wbrs');
+  assert.ok($('.math-rendered[data-display="true"] .math-variant').length > 0,
+    'display formulas keep their precomputed line stacks');
   assert.ok($('.math-rendered[data-display="true"] mjx-container[display="true"]').length);
   const css = await mathStylesheet(renderer);
   assert.match(css, /@font-face/);

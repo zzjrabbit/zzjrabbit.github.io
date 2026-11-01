@@ -7,11 +7,13 @@
  * removes all three costs: the first paint already contains the final formula,
  * no typesetting JavaScript is shipped, and there is nothing to hydrate.
  *
- * MathJax chooses line breaks from the width available when it typesets.  A
- * static page cannot know that width in advance, so each formula is rendered at
- * several break widths and the duplicate variants are hidden with container
- * queries.  Short formulas produce identical output at every width and are only
- * emitted once.
+ * Display formulas still need fixed break widths, because MathJax precomputes
+ * their line stacks during the build and a static page cannot know the reader's
+ * column width.  Inline formulas do not: MathJax 4 emits `mjx-break` markers and
+ * lets the browser wrap the formula inside the surrounding paragraph.  That is
+ * what keeps justified prose from stretching the spaces around an indivisible
+ * formula.  Only inline formulas with no browser breakpoint fall back to the
+ * width-specific line stacks.
  */
 import { load } from 'cheerio';
 import MathJax from 'mathjax';
@@ -42,44 +44,26 @@ const LIST_WIDTHS = { compact: 56, narrow: 128 };
 // draws at 20.7px, every line becomes correspondingly wider and overflows.
 const MATH_EM = { inline: 16 * 1.125 * 1.15, display: 16 * 1.4375 * 1.0625 };
 
-// Inline formulas used to be indivisible atoms in the surrounding prose. If
-// one landed at the end of a justified line, the browser could only stretch
-// the preceding word spaces, producing conspicuous gaps. These are the
-// operators at which MathJax itself would prefer to break a line. Inserting a
-// real HTML break opportunity there lets the browser fill the line with part
-// of the formula instead of pushing the whole formula to the next line.
-const INLINE_BREAK_BEFORE = new Set([
-  '=', '≠', '<', '>', '≤', '≥', '+', '−', '-', '±', '∓', '×', '·', '⋅',
-  '÷', '→', '←', '↔', '⇒', '⇐', '⇔', '∈', '∉', '⊂', '⊃', '⊆', '⊇',
-  '≡', '∼', '≃', '≈', '∝',
-]);
-// A break inside a script, fraction, root or matrix would tear a single
-// mathematical object apart. Only operators in the formula's main row are
-// eligible.
-const INLINE_BREAK_BLOCKERS = 'mjx-script, mjx-msup, mjx-msub, mjx-msubsup, mjx-mfrac, mjx-sqrt, mjx-root, mjx-mtable, mjx-munderover, mjx-munder, mjx-mover, mjx-mmultiscripts, mjx-ms';
-const PREFIX_OPERATORS = new Set(['', '(', '[', '{', '=', '+', '−', '-', '±', '×', '·', '<', '>', '≤', '≥', ',', ':']);
-
-/** Add browser break opportunities at the top level of an inline formula. */
-function addInlineBreakOpportunities(output) {
-  const $ = load(`<div id="inline-break-root">${output}</div>`);
-  const root = $('#inline-break-root');
-  let level = root.find('mjx-math').first();
-  if (!level.length) return output;
-  // MathJax wraps some expressions in a single mrow; walk through those
-  // wrappers to reach the row that actually contains the operators.
-  while (level.children().length === 1 && level.children().first().is('mjx-mrow')) {
-    level = level.children().first();
-  }
-  for (const child of [...level.children()]) {
-    const operator = $(child);
-    if (!operator.is('mjx-mo')) continue;
-    const symbol = operator.text().replace(/\s+/g, '').trim();
-    if (!INLINE_BREAK_BEFORE.has(symbol)) continue;
-    if (operator.closest(INLINE_BREAK_BLOCKERS).length) continue;
-    const previous = operator.prevAll().not('wbr').first();
-    const previousSymbol = previous.length ? previous.text().replace(/\s+/g, '').trim() : '';
-    if (PREFIX_OPERATORS.has(previousSymbol)) continue;
-    operator.before($('<wbr>').attr('style', 'white-space: normal;'));
+/**
+ * Flatten `mrow`s that only group the formula's top level.  MathJax's inline
+ * line breaker visits the operators directly under the math root; Typst wraps a
+ * long expression in an mrow, which would otherwise hide every plus or minus
+ * behind a single break point at the outer relation.
+ */
+function flattenTopLevelRows(mathml) {
+  const $ = load(`<div id="inline-math-root">${mathml}</div>`);
+  const root = $('#inline-math-root');
+  const math = root.find('math').first();
+  if (!math.length) return mathml;
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const child of [...math.children()]) {
+      if (child.tagName !== 'mrow') continue;
+      const row = $(child);
+      row.replaceWith(row.contents());
+      changed = true;
+    }
   }
   return root.html();
 }
@@ -115,12 +99,15 @@ export async function createMathRenderer({ cwd = process.cwd() } = {}) {
   return rendererPromise;
 }
 
+/**
+ * Render one width-specific fallback.  Display formulas need this because their
+ * line breaks are chosen during the build; an inline formula that contains no
+ * browser breakpoint needs it for the same reason.
+ */
 async function serialiseMathJax(renderer, mathml, width, display, overflow = 'linebreak') {
   const { instance } = renderer;
   const em = display ? MATH_EM.display : MATH_EM.inline;
-  // MathJax only precomputes line breaks for display math.  Render an inline
-  // copy as display math to obtain a line stack, then turn that stack into a
-  // breakable inline structure (the generated CSS understands this form).
+  // Precompute a line stack for the fallback inline case.
   let source = display ? mathml : mathml.replace(/^<math\b(?![^>]*\bdisplay=)/, '<math display="block"');
   if (overflow !== 'linebreak') {
     source = source.replace(/^<math\b(?![^>]*\boverflow=)/, `<math overflow="${overflow}"`);
@@ -138,9 +125,33 @@ async function serialiseMathJax(renderer, mathml, width, display, overflow = 'li
       .replace(/ jax="CHTML" overflow="(?:linebreak|scale)" display="true"/, ` jax="CHTML" overflow="${overflow}"`)
       .replace(/<mjx-math([^>]*) display="true"/, '<mjx-math$1')
       .replaceAll('<mjx-linestack>', '<mjx-linestack breakable="true">');
-    output = addInlineBreakOpportunities(output);
   }
   return output;
+}
+
+/**
+ * Render an inline formula once with MathJax's native browser line breaking.
+ * MathJax inserts `mjx-break` elements at legal operators; the browser then
+ * wraps the formula as part of the justified paragraph at any width.
+ */
+async function serialiseInlineMath(renderer, mathml) {
+  const { instance } = renderer;
+  const em = MATH_EM.inline;
+  const node = await instance.mathml2chtmlPromise(flattenTopLevelRows(mathml), {
+    em,
+    ex: em / 2,
+    containerWidth: MATH_VARIANTS.at(-1).inline,
+  });
+  const output = instance.startup.adaptor
+    .outerHTML(node)
+    .replace('<mjx-container class="MathJax"', '<mjx-container class="MathJax not-content"');
+  // MathJax marks browser break opportunities with a real space inside
+  // mjx-break. Justified text treats that space as stretchable, so a formula
+  // landing near the end of a line opens a conspicuous gap. A zero-width space
+  // keeps the same break opportunity without giving justification anything to
+  // stretch.
+  return output.replace(/<mjx-break([^>]*)>\s*<\/mjx-break>/g,
+    '<mjx-break$1>&#8203;</mjx-break>');
 }
 
 /**
@@ -156,6 +167,13 @@ export async function renderMathHtml(html, renderer) {
   for (const element of math) {
     const mathml = $.html(element);
     const display = $(element).attr('display') === 'block';
+    if (!display) {
+      const inline = await serialiseInlineMath(renderer, mathml);
+      if (inline.includes('<mjx-break')) {
+        $(element).replaceWith(`<span class="math-rendered" data-display="false" data-layout="inline-breakable">${inline}</span>`);
+        continue;
+      }
+    }
     const inList = $(element).parents('li, blockquote').length > 0;
     const outputs = new Map();
     for (const variant of MATH_VARIANTS) {
@@ -173,7 +191,8 @@ export async function renderMathHtml(html, renderer) {
     }
     const variants = [...outputs.entries()].map(([output, names]) =>
       `<span class="math-variant ${names.map(name => `is-${name}`).join(' ')}">${output}</span>`);
-    $(element).replaceWith(`<span class="math-rendered" data-display="${display}">${variants.join('')}</span>`);
+    const layout = display ? 'display' : 'inline-fallback';
+    $(element).replaceWith(`<span class="math-rendered" data-display="${display}" data-layout="${layout}">${variants.join('')}</span>`);
   }
   return { html: root.html(), count: math.length };
 }

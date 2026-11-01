@@ -38,6 +38,7 @@ const readMathState = target => target.evaluate(() => {
       && getComputedStyle(container).display !== 'inline').length,
     native: document.querySelectorAll('.typst-article math').length,
     runtime: Boolean(window.MathJax),
+    stretchyBreaks: [...document.querySelectorAll('.typst-article mjx-break')].filter(el => /\s/.test(el.textContent)).length,
     wrongOutput: containers.filter(el => el.getAttribute('jax') !== 'CHTML').length,
     wrongOverflow: shown.filter(el => el.getAttribute('overflow') !== 'linebreak').length,
     scrollContainers: shown.filter(el => ['auto', 'scroll'].includes(getComputedStyle(el).overflowX)).length,
@@ -88,6 +89,7 @@ try {
         assert.ok(mathState.containers > 0, `${width}px: static CHTML renders ${file}`);
         assert.equal(mathState.native, 0, `${width}px: no unrendered MathML remains: ${file}`);
         assert.equal(mathState.runtime, false, `${width}px: no MathJax runtime is loaded: ${file}`);
+        assert.equal(mathState.stretchyBreaks, 0, `${width}px: inline break points are not stretchable: ${file}`);
         assert.equal(mathState.missingVariant, 0, `${width}px: every formula shows exactly one variant: ${file}`);
         assert.equal(mathState.wrongOutput, 0, `${width}px: every formula uses CHTML: ${file}`);
         assert.equal(mathState.wrongOverflow, 0, `${width}px: every formula permits line breaking: ${file}`);
@@ -161,6 +163,7 @@ try {
       assert.equal(state.proseAlign, 'justify', `${width}px: prose is justified: ${note.file}`);
       assert.equal(state.native, 0, `${width}px: no unrendered MathML remains: ${note.file}`);
       assert.equal(state.runtime, false, `${width}px: no MathJax runtime is loaded: ${note.file}`);
+      assert.equal(state.stretchyBreaks, 0, `${width}px: inline break points are not stretchable: ${note.file}`);
       assert.equal(state.wrappers, sourceMath.get(note.file), `${width}px: one wrapper per source formula: ${note.file}`);
       assert.equal(state.containers, sourceMath.get(note.file), `${width}px: one visible CHTML container per formula: ${note.file}`);
       assert.equal(state.missingVariant, 0, `${width}px: every formula has one visible break variant: ${note.file}`);
@@ -174,15 +177,17 @@ try {
       assert.equal(state.inlineMargins, 0, `${width}px: inline formulas carry no block margin: ${note.file}`);
     }
   }
-  // A wide formula must actually have more than one precomputed line at phone
-  // width. CHTML deliberately sets line-height: 0 on the root, so counting the
-  // generated line boxes is more reliable than measuring container height.
+  // A wide formula must actually wrap at phone width. Display fallbacks carry
+  // precomputed line boxes; browser-broken inline formulas expose one client
+  // rect per line instead.
   await page.setViewportSize({ width: 390, height: 844 });
   for (const file of ['typ/problems/fe_finite_set.html', 'phys/dynamics/sling.html']) {
     await page.goto(`https://notes.test/${file}`);
     await mathReady(page);
     const tallest = await page.locator('.typst-article mjx-container').evaluateAll(containers => containers.filter(el => el.getClientRects().length).reduce((best, el) => {
-      const lines = el.querySelectorAll('mjx-linestack > mjx-linebox').length;
+      const precomputed = el.querySelectorAll('mjx-linestack > mjx-linebox').length;
+      const browserLines = [...el.getClientRects()].filter(rect => rect.width > 0).length;
+      const lines = Math.max(precomputed, browserLines);
       return lines > best.lines ? { lines, text: el.textContent.slice(0, 40) } : best;
     }, { lines: 0, text: '' }));
     assert.ok(tallest.lines > 1, `a long formula wraps onto multiple lines at 390px: ${file} (${tallest.lines} lines, ${tallest.text})`);

@@ -284,10 +284,12 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
 .typst-article .note-diagram-block > svg { max-width: 100%; height: auto; }
 .typst-article pre, .note-source pre { overflow-x: auto; padding: 1rem; background: var(--sl-color-bg-sidebar); }
 .typst-article table { display: block; max-width: 100%; overflow-x: auto; }
-/* Formulas are typeset to CHTML during the build. Each formula carries one or
-   more break variants; only the one that fits the article container is
-   displayed. There is no client-side MathJax pass, so the first paint is the
-   final formula and resizing switches variants without re-typesetting. */
+/* Formulas are typeset to CHTML during the build. Inline formulas use one
+   container with MathJax's native break points, so the browser can wrap them
+   inside justified prose at any width. Display formulas, and the rare inline
+   formula with no legal break point, carry precomputed variants instead; only
+   the one that fits the article container is displayed. There is no
+   client-side MathJax pass, so the first paint is final. */
 .math-rendered { display: inline; max-width: 100%; }
 .math-rendered[data-display='true'] { display: block; }
 .math-variant { display: none; }
@@ -331,10 +333,11 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
 .typst-article mjx-container[jax='CHTML'] { font-size: 1.15em; max-width: 100%; }
 .typst-article mjx-container[jax='CHTML']:not([display='true']) { margin-block: 0; }
 .typst-article mjx-container[jax='CHTML'][display='true'] { font-size: calc(1.4375rem * var(--notebook-type-scale)); }
-/* A matrix has no internal line-break opportunity. On the narrowest phones,
-   scale that one unbreakable shape instead of opening a horizontal scrollbar;
+/* A matrix has no internal line-break opportunity, so an otherwise breakable
+   formula can still leave a segment wider than a narrow article column. Scale
+   that one unbreakable shape instead of opening a horizontal scrollbar;
    ordinary formulas still use MathJax's operator-aware line breaking. */
-@media (max-width: 22rem) {
+@container article (max-width: 22em) {
   .typst-article mjx-container[jax='CHTML']:not([display='true']):has(mjx-mtable) { font-size: 85% !important; }
 }
 /* Numbered equations. Typst's HTML export drops the number a note asked for with

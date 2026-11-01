@@ -52,7 +52,10 @@ for (const note of notes) {
   }
   assert.equal($('.typst-article math').length, 0, `${note.file}: MathML was rendered at build time`);
   assert.equal($('.typst-article .math-rendered').length, note.mathCount, `${note.file}: one wrapper per source formula`);
-  assert.equal($('.typst-article .math-rendered > .math-variant').length >= note.mathCount, true, `${note.file}: every formula has a static CHTML variant`);
+  $('.typst-article .math-rendered').each((_, el) => {
+    assert.ok($(el).children('.math-variant, mjx-container').length > 0,
+      `${note.file}: every formula has static CHTML, either inline or as a width-specific fallback`);
+  });
   assert.equal($('.typst-article mjx-container:not([jax="CHTML"])').length, 0, `${note.file}: formulas use CHTML`);
   assert.ok($('site-search').length, `${note.file}: Starlight search`);
   assert.ok($('button[popovertarget="starlight__sidebar"]').length, `${note.file}: mobile navigation`);
