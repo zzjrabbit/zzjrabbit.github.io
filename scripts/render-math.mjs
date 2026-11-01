@@ -42,6 +42,48 @@ const LIST_WIDTHS = { compact: 56, narrow: 128 };
 // draws at 20.7px, every line becomes correspondingly wider and overflows.
 const MATH_EM = { inline: 16 * 1.125 * 1.15, display: 16 * 1.4375 * 1.0625 };
 
+// Inline formulas used to be indivisible atoms in the surrounding prose. If
+// one landed at the end of a justified line, the browser could only stretch
+// the preceding word spaces, producing conspicuous gaps. These are the
+// operators at which MathJax itself would prefer to break a line. Inserting a
+// real HTML break opportunity there lets the browser fill the line with part
+// of the formula instead of pushing the whole formula to the next line.
+const INLINE_BREAK_BEFORE = new Set([
+  '=', '≠', '<', '>', '≤', '≥', '+', '−', '-', '±', '∓', '×', '·', '⋅',
+  '÷', '→', '←', '↔', '⇒', '⇐', '⇔', '∈', '∉', '⊂', '⊃', '⊆', '⊇',
+  '≡', '∼', '≃', '≈', '∝',
+]);
+// A break inside a script, fraction, root or matrix would tear a single
+// mathematical object apart. Only operators in the formula's main row are
+// eligible.
+const INLINE_BREAK_BLOCKERS = 'mjx-script, mjx-msup, mjx-msub, mjx-msubsup, mjx-mfrac, mjx-sqrt, mjx-root, mjx-mtable, mjx-munderover, mjx-munder, mjx-mover, mjx-mmultiscripts, mjx-ms';
+const PREFIX_OPERATORS = new Set(['', '(', '[', '{', '=', '+', '−', '-', '±', '×', '·', '<', '>', '≤', '≥', ',', ':']);
+
+/** Add browser break opportunities at the top level of an inline formula. */
+function addInlineBreakOpportunities(output) {
+  const $ = load(`<div id="inline-break-root">${output}</div>`);
+  const root = $('#inline-break-root');
+  let level = root.find('mjx-math').first();
+  if (!level.length) return output;
+  // MathJax wraps some expressions in a single mrow; walk through those
+  // wrappers to reach the row that actually contains the operators.
+  while (level.children().length === 1 && level.children().first().is('mjx-mrow')) {
+    level = level.children().first();
+  }
+  for (const child of [...level.children()]) {
+    const operator = $(child);
+    if (!operator.is('mjx-mo')) continue;
+    const symbol = operator.text().replace(/\s+/g, '').trim();
+    if (!INLINE_BREAK_BEFORE.has(symbol)) continue;
+    if (operator.closest(INLINE_BREAK_BLOCKERS).length) continue;
+    const previous = operator.prevAll().not('wbr').first();
+    const previousSymbol = previous.length ? previous.text().replace(/\s+/g, '').trim() : '';
+    if (PREFIX_OPERATORS.has(previousSymbol)) continue;
+    operator.before($('<wbr>').attr('style', 'white-space: normal;'));
+  }
+  return root.html();
+}
+
 let rendererPromise;
 
 /**
@@ -96,6 +138,7 @@ async function serialiseMathJax(renderer, mathml, width, display, overflow = 'li
       .replace(/ jax="CHTML" overflow="(?:linebreak|scale)" display="true"/, ` jax="CHTML" overflow="${overflow}"`)
       .replace(/<mjx-math([^>]*) display="true"/, '<mjx-math$1')
       .replaceAll('<mjx-linestack>', '<mjx-linestack breakable="true">');
+    output = addInlineBreakOpportunities(output);
   }
   return output;
 }

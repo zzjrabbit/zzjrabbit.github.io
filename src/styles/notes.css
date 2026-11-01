@@ -254,13 +254,14 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
 }
 .typst-article {
   font-family: var(--notebook-serif); font-size: 1.125rem; line-height: 1.9; overflow-wrap: break-word;
+  text-align: justify; text-justify: inter-word; hyphens: auto;
   /* Static formula variants are selected by the real width of the article,
      not by a viewport guess: the sidebar and page padding both change it. */
   container-name: article;
   container-type: inline-size;
 }
-.typst-article :where(p, li) { text-align: justify; text-justify: inter-word; hyphens: auto; }
-.typst-article :is(.note-align-center, .note-align-start, .note-align-end) :where(p, li) { text-align: inherit; }
+.typst-article :where(h1, h2, h3, h4, h5, h6, .note-environment-title) { text-align: start; }
+.typst-article :is(.note-align-center, .note-align-start, .note-align-end) :where(h1, h2, h3, h4, h5, h6, p, li, .note-environment-title) { text-align: inherit; }
 .typst-article :is(h2,h3,h4,.note-environment-title) { font-family: var(--sl-font); }
 .typst-article :is(img,svg) { max-width: 100%; height: auto; }
 /* Inherit theme ink even for SVG shapes with the default (implicit black) fill. */
@@ -320,6 +321,7 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
    away from the final line. Restore a real line box and let breakable inline
    formulas participate in the surrounding text flow. */
 .typst-article mjx-linestack[breakable] { line-height: 1.6; }
+.typst-article .math-rendered:not([data-display='true']) mjx-math { display: inline; }
 .typst-article .math-rendered:not([data-display='true']) mjx-container:has(> mjx-math > mjx-linestack[breakable]),
 .typst-article .math-rendered:not([data-display='true']) mjx-math:has(> mjx-linestack[breakable]) { display: inline; }
 /* Display math keeps the root 23px, scaled by the same dial as the body so

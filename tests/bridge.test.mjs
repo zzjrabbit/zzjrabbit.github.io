@@ -49,6 +49,10 @@ test('renders MathML to static CHTML without a browser runtime', async () => {
   assert.equal($('.math-variant.is-compact mjx-container[overflow="scale"]').length, 2, 'the text-zoom variant falls back to scaling');
   assert.equal($('mjx-container:not([jax="CHTML"])').length, 0);
   assert.equal($('mjx-container[overflow="linebreak"]').length >= 2, true);
+  assert.ok($('.math-rendered[data-display="false"] wbr').length >= 1,
+    'inline formulas expose break opportunities at their top-level operators');
+  assert.equal($('.math-rendered[data-display="true"] wbr').length, 0,
+    'display formulas keep their own line-breaking layout');
   assert.ok($('.math-rendered[data-display="true"] mjx-container[display="true"]').length);
   const css = await mathStylesheet(renderer);
   assert.match(css, /@font-face/);

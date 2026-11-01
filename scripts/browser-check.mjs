@@ -24,6 +24,7 @@ const readMathState = target => target.evaluate(() => {
   const visible = el => el.getClientRects().length > 0;
   const shown = containers.filter(visible);
   return {
+    proseAlign: document.querySelector('.typst-article') ? getComputedStyle(document.querySelector('.typst-article')).textAlign : null,
     wrappers: wrappers.length,
     containers: shown.length,
     variants: containers.length,
@@ -157,6 +158,7 @@ try {
       await mathReady(page);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${width}px page overflow: ${note.file}`);
       const state = await readMathState(page);
+      assert.equal(state.proseAlign, 'justify', `${width}px: prose is justified: ${note.file}`);
       assert.equal(state.native, 0, `${width}px: no unrendered MathML remains: ${note.file}`);
       assert.equal(state.runtime, false, `${width}px: no MathJax runtime is loaded: ${note.file}`);
       assert.equal(state.wrappers, sourceMath.get(note.file), `${width}px: one wrapper per source formula: ${note.file}`);
