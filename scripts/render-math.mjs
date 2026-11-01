@@ -44,26 +44,28 @@ const LIST_WIDTHS = { compact: 56, narrow: 128 };
 // draws at 20.7px, every line becomes correspondingly wider and overflows.
 const MATH_EM = { inline: 16 * 1.125 * 1.15, display: 16 * 1.4375 * 1.0625 };
 
+// A break inside a fraction, root, script, matrix or accent would tear one
+// mathematical object apart. Grouping rows elsewhere are only there to express
+// Typst's source structure, so flattening them exposes the operators inside
+// parentheses to MathJax's line breaker without touching those atomic shapes.
+const INLINE_ATOMIC = 'mfrac, msqrt, mroot, mtable, mtr, mtd, msub, msup, msubsup, munder, mover, munderover, mmultiscripts, menclose';
+
 /**
- * Flatten `mrow`s that only group the formula's top level.  MathJax's inline
- * line breaker visits the operators directly under the math root; Typst wraps a
- * long expression in an mrow, which would otherwise hide every plus or minus
- * behind a single break point at the outer relation.
+ * Flatten grouping `mrow`s so MathJax's inline line breaker can see operators
+ * nested inside parentheses.  Typst wraps long expressions in these rows,
+ * which would otherwise leave only a few coarse break points and let browser
+ * justification stretch the surrounding word spaces.
  */
-function flattenTopLevelRows(mathml) {
+function flattenInlineRows(mathml) {
   const $ = load(`<div id="inline-math-root">${mathml}</div>`);
   const root = $('#inline-math-root');
   const math = root.find('math').first();
   if (!math.length) return mathml;
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const child of [...math.children()]) {
-      if (child.tagName !== 'mrow') continue;
-      const row = $(child);
-      row.replaceWith(row.contents());
-      changed = true;
-    }
+  // Deepest first keeps the references stable while parent rows are replaced.
+  for (const child of [...math.find('mrow').toArray()].reverse()) {
+    const row = $(child);
+    if (row.closest(INLINE_ATOMIC).length) continue;
+    row.replaceWith(row.contents());
   }
   return root.html();
 }
@@ -137,7 +139,7 @@ async function serialiseMathJax(renderer, mathml, width, display, overflow = 'li
 async function serialiseInlineMath(renderer, mathml) {
   const { instance } = renderer;
   const em = MATH_EM.inline;
-  const node = await instance.mathml2chtmlPromise(flattenTopLevelRows(mathml), {
+  const node = await instance.mathml2chtmlPromise(flattenInlineRows(mathml), {
     em,
     ex: em / 2,
     containerWidth: MATH_VARIANTS.at(-1).inline,

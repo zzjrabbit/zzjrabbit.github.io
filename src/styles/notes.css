@@ -326,6 +326,15 @@ h1 { font-family: var(--notebook-serif); letter-spacing: -.035em; }
 .typst-article .math-rendered:not([data-display='true']) mjx-math { display: inline; }
 .typst-article .math-rendered:not([data-display='true']) mjx-container:has(> mjx-math > mjx-linestack[breakable]),
 .typst-article .math-rendered:not([data-display='true']) mjx-math:has(> mjx-linestack[breakable]) { display: inline; }
+/* Progressive line breaking (src/scripts/justify-notes.js). The original
+   paragraph remains intact without JavaScript; once the script has measured
+   the text and chosen breaks, each line is a block with both margins aligned.
+   Formula break points become zero-width spaces, so the extra measure can be
+   shared with mathematics instead of concentrating in the prose word spaces. */
+.typst-article .kp-section { display: block; }
+.typst-article .kp-line { display: block; white-space: nowrap; text-align: justify; text-align-last: justify; }
+.typst-article .kp-section > .kp-line:last-child { text-align-last: start; }
+.typst-article .kp-math-glue { font-size: 0; line-height: 0; }
 /* Display math keeps the root 23px, scaled by the same dial as the body so
    equations stay a step above the prose around them. CHTML's line-breaking
    engine chose the breaks for the regular variants; the text-zoom compact

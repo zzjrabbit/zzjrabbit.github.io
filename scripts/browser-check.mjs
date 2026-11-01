@@ -23,9 +23,14 @@ const readMathState = target => target.evaluate(() => {
   const wrappers = [...document.querySelectorAll('.typst-article .math-rendered')];
   const visible = el => el.getClientRects().length > 0;
   const shown = containers.filter(visible);
+  const sourceIds = new Set(wrappers.map(wrapper => wrapper.dataset.kpSource).filter(Boolean));
+  const visibleSourceIds = new Set(wrappers.filter(wrapper => wrapper.querySelector('mjx-container') && [...wrapper.querySelectorAll('mjx-container')].some(visible)).map(wrapper => wrapper.dataset.kpSource).filter(Boolean));
+  const kpLines = [...document.querySelectorAll('.typst-article .kp-line')];
   return {
     proseAlign: document.querySelector('.typst-article') ? getComputedStyle(document.querySelector('.typst-article')).textAlign : null,
     wrappers: wrappers.length,
+    sourceWrappers: sourceIds.size,
+    visibleSourceWrappers: visibleSourceIds.size,
     containers: shown.length,
     variants: containers.length,
     missingVariant: wrappers.filter(wrapper => [...wrapper.children].filter(visible).length !== 1).length,
@@ -48,6 +53,10 @@ const readMathState = target => target.evaluate(() => {
       return box.left < -1 || box.right > innerWidth + 1;
     }).length,
     inlineMargins: shown.filter(el => el.getAttribute('display') !== 'true' && (parseFloat(getComputedStyle(el).marginTop) !== 0 || parseFloat(getComputedStyle(el).marginBottom) !== 0)).length,
+    kpParagraphs: document.querySelectorAll('.typst-article p[data-kp-layout]').length,
+    kpLines: kpLines.length,
+    kpOverflow: kpLines.filter(line => line.scrollWidth > line.clientWidth + 1).length,
+    kpBadLastLine: kpLines.filter(line => !line.matches('.kp-section > .kp-line:last-child') && getComputedStyle(line).textAlignLast !== 'justify').length,
   };
 });
 const errors = [];
@@ -153,6 +162,8 @@ try {
   // instead of scaling formulas down or putting them in a scroll container.
   // Each source formula becomes one wrapper with exactly one visible variant.
   const sourceMath = new Map(notes.map(note => [note.file, note.mathCount]));
+  const justifiedByWidth = new Map();
+  let justifiedLines = 0;
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
     for (const note of notes) {
@@ -164,8 +175,9 @@ try {
       assert.equal(state.native, 0, `${width}px: no unrendered MathML remains: ${note.file}`);
       assert.equal(state.runtime, false, `${width}px: no MathJax runtime is loaded: ${note.file}`);
       assert.equal(state.stretchyBreaks, 0, `${width}px: inline break points are not stretchable: ${note.file}`);
-      assert.equal(state.wrappers, sourceMath.get(note.file), `${width}px: one wrapper per source formula: ${note.file}`);
-      assert.equal(state.containers, sourceMath.get(note.file), `${width}px: one visible CHTML container per formula: ${note.file}`);
+      assert.equal(state.sourceWrappers, sourceMath.get(note.file), `${width}px: one wrapper per source formula: ${note.file}`);
+      assert.equal(state.visibleSourceWrappers, sourceMath.get(note.file), `${width}px: every source formula is visible: ${note.file}`);
+      assert.ok(state.containers >= state.sourceWrappers, `${width}px: split formulas keep at least one visible container each: ${note.file}`);
       assert.equal(state.missingVariant, 0, `${width}px: every formula has one visible break variant: ${note.file}`);
       assert.equal(state.overlappingLines, 0, `${width}px: wrapped formula lines do not overlap: ${note.file}`);
       assert.equal(state.unflowedInlineMath, 0, `${width}px: wrapped inline formulas stay in the text flow: ${note.file}`);
@@ -175,8 +187,30 @@ try {
       assert.equal(state.overflowing, 0, `${width}px: formulas do not overflow their containers: ${note.file}`);
       assert.equal(state.outsideViewport, 0, `${width}px: formulas stay inside the viewport: ${note.file}`);
       assert.equal(state.inlineMargins, 0, `${width}px: inline formulas carry no block margin: ${note.file}`);
+      assert.equal(state.kpOverflow, 0, `${width}px: justified lines stay inside the text column: ${note.file}`);
+      assert.equal(state.kpBadLastLine, 0, `${width}px: non-final justified lines align both margins: ${note.file}`);
+      if (state.kpLines) justifiedByWidth.set(width, (justifiedByWidth.get(width) || 0) + 1);
+      justifiedLines += state.kpLines;
     }
   }
+  for (const width of [390, 768, 1440]) {
+    assert.ok((justifiedByWidth.get(width) || 0) >= notes.length * 0.6, `${width}px: most notes use the PDF-style line breaker (${justifiedByWidth.get(width) || 0}/${notes.length})`);
+  }
+  assert.ok(justifiedLines > 100, 'the line breaker lays out substantial note prose');
+  // The line breaker must survive a live width change and step aside for print.
+  await page.setViewportSize({ width: 1024, height: 1000 });
+  await page.goto('https://notes.test/typ/problems/fe_finite_set.html');
+  await mathReady(page);
+  assert.ok(await page.locator('.kp-line').count() > 10, 'long note starts with PDF-style lines');
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.waitForFunction(() => document.querySelectorAll('.kp-line').length > 0, null, { timeout: 3000 });
+  assert.ok(await page.locator('.typst-article p[data-kp-layout]').count() > 0, 'resizing recomputes the line layout');
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'resized line layout stays inside the viewport');
+  await page.evaluate(() => dispatchEvent(new Event('beforeprint')));
+  assert.equal(await page.locator('.typst-article p[data-kp-layout]').count(), 0, 'printing restores the original paragraph DOM');
+  await page.evaluate(() => dispatchEvent(new Event('afterprint')));
+  await page.waitForFunction(() => document.querySelectorAll('.kp-line').length > 0, null, { timeout: 3000 });
+  assert.ok(await page.locator('.typst-article p[data-kp-layout]').count() > 0, 'screen layout returns after printing');
   // A wide formula must actually wrap at phone width. Display fallbacks carry
   // precomputed line boxes; browser-broken inline formulas expose one client
   // rect per line instead.

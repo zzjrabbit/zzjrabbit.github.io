@@ -70,6 +70,18 @@ test('renders MathML to static CHTML without a browser runtime', async () => {
   assert.match(css, /\/mathjax\/mathjax-stix2-font\/chtml\/woff2\/mjx-stx-n\.woff2/);
   assert.doesNotMatch(css, /node_modules/);
 });
+
+test('flattens grouping rows inside parentheses into inline break points', async () => {
+  const renderer = await createMathRenderer();
+  const rendered = await renderMathHtml(`
+    <p><math><mrow><mo>(</mo><mrow><mi>a</mi><mo>+</mo><mi>b</mi></mrow><mo>)</mo><mo>+</mo><mi>c</mi></mrow></math></p>`, renderer);
+  const $ = load(rendered.html);
+  // Flattening only the outer row would expose the final `+ c`; the nested row
+  // must also expose `a + b`, otherwise long parenthesised expressions have to
+  // be moved as one unbreakable chunk by the justified paragraph.
+  assert.ok($('.math-rendered[data-layout="inline-breakable"] mjx-break').length >= 2,
+    'operators inside parentheses remain available to the line breaker');
+});
 test('diagram ink follows the theme without inverting semantic colors or masks', () => {
   const note = extractNote(`<main class="calepin-website-main"><h1>Diagram</h1>
     <svg viewBox="0 0 20 20"><defs><path id="glyph" d="M0 0h2"/><mask id="cutout"><path fill="#000000"/></mask></defs>
