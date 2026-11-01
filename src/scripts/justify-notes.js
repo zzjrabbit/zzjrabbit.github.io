@@ -36,6 +36,11 @@
     canvas.font = fontFor(element);
     return canvas.measureText(text).width;
   };
+  // A word may already be split across lines by the browser's fallback
+  // wrapping. Its bounding rect then spans the whole line, while summing the
+  // individual client rects recovers the width of the word itself.
+  const rangeWidth = range => [...range.getClientRects()]
+    .reduce((width, rect) => width + rect.width, 0);
   const boundary = (node, offset, formula = null) => ({ node, offset, formula });
 
   function restore(paragraph) {
@@ -58,7 +63,7 @@
         const range = document.createRange();
         range.setStart(math, start);
         range.setEnd(math, index);
-        nodes.push({ type: "box", width: range.getBoundingClientRect().width, value: "math" });
+        nodes.push({ type: "box", width: rangeWidth(range), value: "math" });
       }
       if (index < children.length) {
         // The zero-width span becomes a real word-space during justification,
@@ -125,7 +130,7 @@
           const range = document.createRange();
           range.setStart(node, part.index);
           range.setEnd(node, part.index + part[0].length);
-          nodes.push({ type: "box", width: range.getBoundingClientRect().width, value: part[0] });
+          nodes.push({ type: "box", width: rangeWidth(range), value: part[0] });
         }
       }
     }
@@ -138,7 +143,7 @@
    * candidate ending; the objective is total cubic badness.  The final line of
    * a hard-break section is free because it is set ragged, as in a PDF.
    */
-  function solve(nodes, target) {
+  function solve(nodes, target, maxRatio = 10) {
     const prefix = { width: [0], stretch: [0], shrink: [0] };
     for (const node of nodes) {
       prefix.width.push(prefix.width.at(-1) + (node.type === "penalty" ? 0 : node.width));
@@ -176,7 +181,7 @@
         } else {
           ratio = 0;
         }
-        if (!points[toIndex].final && ratio > 10) continue;
+        if (!points[toIndex].final && ratio > maxRatio) continue;
         const badness = Math.min(10000, 100 * Math.abs(ratio) ** 3);
         const cost = points[toIndex].final && width <= target ? 0 : (10 + badness) ** 2;
         const total = best[fromIndex] + cost;
@@ -229,7 +234,13 @@
   function build(paragraph, width) {
     const sections = [];
     for (const section of models(paragraph)) {
-      const breaks = solve(section.nodes, width - safety);
+      let breaks = solve(section.nodes, width - safety);
+      if (!breaks.length) {
+        // If the strict typographic limits leave a gap with no legal line
+        // sequence, prefer a slightly looser justified paragraph over silently
+        // restoring the browser's greedy layout for the whole section.
+        breaks = solve(section.nodes, width - safety, Infinity);
+      }
       const block = document.createElement("span");
       block.className = "kp-section";
       if (breaks.length < 3 || breaks.at(-1).position !== section.nodes.length - 1) {

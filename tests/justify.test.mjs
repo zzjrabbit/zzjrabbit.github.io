@@ -14,6 +14,9 @@ test('note pages opt into the local progressive line breaker', async () => {
   assert.match(script, /kpSource/);
   assert.match(script, /beforeprint/);
   assert.match(script, /ResizeObserver/);
+  assert.match(script, /getClientRects\(\)/, 'wrapped words use their fragment widths');
+  assert.doesNotMatch(script, /range\.getBoundingClientRect\(\)/, 'a wrapped word must not borrow the line-wide bounding box');
+  assert.match(script, /width - safety, Infinity/, 'a section falls back to relaxed stretching before giving up');
   assert.doesNotMatch(script, /Typeset\.|window\.MathJax|from ['"]mathjax/,
     'the browser enhancement stays independent of a MathJax runtime');
   assert.match(css, /\.typst-article \.kp-line/);
